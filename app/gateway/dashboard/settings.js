@@ -1,8 +1,8 @@
 /** Module 7D: Settings and System UI. Never build user-controlled HTML. */
 import {
   getSettings, patchSettings, getPrivacyStorage, purgePrivacy,
-  getStoragePreview, runStorageCleanup, getSystemInfo,
-} from "./api.js?v=9b5-20260920";
+  getStoragePreview, getStorageHealth, runStorageCleanup, getSystemInfo,
+} from "./api.js?v=9c1-20260920";
 
 const $ = id => document.getElementById(id);
 const sections = [
@@ -175,7 +175,7 @@ export async function loadSettings({force = false} = {}) {
     const data = await getSettings();
     renderSettings(data);
     view.loaded = true;
-    await Promise.all([refreshPrivacy(), refreshSystem(), refreshStorage({quiet: true})]);
+    await Promise.all([refreshPrivacy(), refreshSystem(), refreshStorage({quiet: true}), refreshArtifactHealth()]);
   } catch (error) {
     status(`Settings could not be loaded: ${error.message}`, "error");
   } finally { view.loading = false; }
@@ -246,6 +246,37 @@ async function refreshStorage({quiet = false} = {}) {
     if (!quiet) status(`Storage preview failed: ${error.message}`, "error");
   }
 }
+async function refreshArtifactHealth() {
+  const note = $("healthNote");
+  const samples = $("healthSamples");
+  note.textContent = "Inspecting managed artifact files…";
+  samples.replaceChildren();
+  try {
+    const report = await getStorageHealth();
+    const r = report.records || {}, u = report.unregistered || {}, scan = report.scan || {};
+    $("healthOriginals").textContent = (r.originals_missing || 0) + (r.originals_unsafe || 0)
+      + (r.originals_unreadable || 0) + (r.originals_empty || 0);
+    $("healthThumbnails").textContent = (r.thumbnails_missing || 0)
+      + (r.thumbnails_unsafe || 0) + (r.thumbnails_unreadable || 0);
+    $("healthOrphans").textContent = u.scan_complete ? (u.eligible_files || 0) : "Scan incomplete";
+    note.textContent = `Inspected ${r.scanned ?? 0} / ${r.total ?? 0} registered artifacts. `
+      + (scan.records_complete && scan.directory_complete
+        ? `Eligible orphan space: ${formatBytes(u.eligible_bytes)}. Recent unregistered files: ${u.recent_unregistered_files || 0}.`
+        : "Scan limit reached; do not treat counts as complete. Nothing deleted.");
+    const findings = report.samples || [];
+    for (const finding of findings) {
+      const line = node("div", "artifact-health-finding");
+      line.append(node("span", "", `${finding.file === "thumbnail" ? "Thumbnail" : "Original"}: ${finding.status.replaceAll("_", " ")}`),
+        node("code", "", `Job ${finding.job_id} · ${finding.artifact_id}`));
+      samples.append(line);
+    }
+    if (!findings.length) samples.append(node("p", "settings-muted", "No missing or unsafe files found in the scanned registered records."));
+  } catch (error) {
+    ["healthOriginals", "healthThumbnails", "healthOrphans"].forEach(id => { $(id).textContent = "Unavailable"; });
+    note.textContent = `Artifact health unavailable: ${error.message}`;
+  }
+}
+
 async function refreshSystem() {
   const root = $("settingsSystemRows");
   try {
@@ -291,6 +322,7 @@ async function confirmCleanup() {
     const done = result.result || {};
     status(`Cleanup finished: ${done.deleted_jobs ?? 0} jobs, ${done.deleted_artifacts ?? 0} artifacts, ${done.deleted_orphan_files ?? 0} orphan files removed.`, "success");
     await refreshStorage({quiet: true});
+    await refreshArtifactHealth();
     await refreshPrivacy();
   } catch (error) {
     $("settingsCleanupError").textContent = `Cleanup failed: ${error.message}`;
@@ -331,6 +363,7 @@ export function initializeSettings() {
   $("settingsDiscard").addEventListener("click", () => loadSettings({force: true}));
   $("settingsReload").addEventListener("click", () => loadSettings({force: true}));
   $("settingsPreview").addEventListener("click", () => refreshStorage());
+  $("settingsHealthRefresh").addEventListener("click", refreshArtifactHealth);
   $("settingsIncludeOrphans").addEventListener("change", () => {
     view.includeOrphans = $("settingsIncludeOrphans").checked;
     view.preview = null;

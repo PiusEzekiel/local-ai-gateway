@@ -49,8 +49,16 @@ export async function requestBlob(path, {signal} = {}) {
   const response = await fetch(path, {headers, signal, cache: "no-store"});
   if (!response.ok) {
     if (response.status === 401) unauthorizedHandler?.();
+    // Preserve only the stable server error type. Never leak host paths or
+    // untrusted error messages into Gallery/Jobs media status labels.
+    let type = "";
+    try {
+      const data = await response.json();
+      if (typeof data?.error?.type === "string") type = data.error.type;
+    } catch { /* non-JSON image failure */ }
     const error = new Error(`Image request failed (${response.status})`);
     error.status = response.status;
+    error.type = type;
     throw error;
   }
   return response.blob();
@@ -99,6 +107,7 @@ export const purgePrivacy = scope => request("/dashboard/api/privacy/purge", {
   method: "POST", headers: {"Content-Type": "application/json"},
   body: JSON.stringify({confirmation: "DELETE_RETAINED_DATA", scope}),
 });
+export const getStorageHealth = () => request("/dashboard/api/storage/health");
 export const getStoragePreview = (includeOrphans = false) => request(
   `/dashboard/api/storage/preview?include_orphans=${includeOrphans ? "true" : "false"}`
 );

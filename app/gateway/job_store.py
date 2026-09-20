@@ -603,6 +603,18 @@ class JobStore:
                   AND COALESCE(completed_at,created_at) < ?
                 ORDER BY COALESCE(completed_at,created_at),id LIMIT ?""", (cutoff, limit))]
 
+    def artifact_health_records(self, limit: int) -> tuple[list[dict[str, Any]], int]:
+        """Metadata-only, bounded artifact inventory for the read-only health API."""
+        if not 1 <= limit <= 5_000:
+            raise ValueError("Health inventory limit must be between 1 and 5000")
+        with self._lock:
+            total = int(self._db.execute('SELECT COUNT(*) FROM artifacts').fetchone()[0])
+            rows = self._db.execute(
+                'SELECT id,job_id,storage_path,thumbnail_path FROM artifacts ORDER BY id LIMIT ?',
+                (limit,),
+            )
+            return [dict(row) for row in rows], total
+
     def retention_artifacts(self) -> list[dict[str, Any]]:
         with self._lock:
             return [dict(r) for r in self._db.execute(

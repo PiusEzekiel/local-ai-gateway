@@ -1,5 +1,5 @@
-import {getJob, requestBlob} from "./api.js?v=9b5-20260920";
-import {state, update} from "./state.js?v=9b5-20260920";
+import {getJob, requestBlob} from "./api.js?v=9c1-20260920";
+import {state, update} from "./state.js?v=9c1-20260920";
 
 const el = (tag, className, text) => {
   const node = document.createElement(tag);
@@ -34,7 +34,10 @@ async function protectedImage(path, image, generation, fallback = "") {
     image.src = objectUrl;
   } catch {
     if (generation !== inspectorGeneration || !image.isConnected) return;
-    image.replaceWith(el("span", "reference-unavailable", "Preview unavailable"));
+    const reason = error?.type === "artifact_missing" ? "Archived image missing"
+      : error?.status === 404 ? "Not retained or removed"
+      : error?.status === 401 ? "Reconnect to view image" : "Preview temporarily unavailable";
+    image.replaceWith(el("span", "reference-unavailable", reason));
   }
 }
 
@@ -52,9 +55,12 @@ function referenceButton(reference, requestId, generation) {
   frame.append(image);
   if (!reference.url) {
     button.disabled = true;
-    image.replaceWith(el("span", "reference-unavailable", "Not retained"));
-    button.title = `Reference ${ordinal} was not retained or has expired`;
+    image.replaceWith(el("span", "reference-unavailable", "Not retained or removed"));
+    button.title = `Reference ${ordinal} was not retained or has been removed`;
   } else {
+    if (reference.availability?.original && !["available", "unknown"].includes(reference.availability.original)) {
+      button.title = `Archived original ${reference.availability.original.replaceAll("_", " ")}`;
+    }
     // Serve the full-size archived reference when available; thumbnail is only
     // used for a lightweight preview. Both URLs are authenticated same-origin.
     protectedImage(reference.thumbnail_url || reference.url, image, generation, reference.url);
@@ -162,6 +168,9 @@ function renderInspector(job) {
         imageHost.disabled = true;
         generated.replaceWith(el("span", "reference-unavailable", "Generated image unavailable"));
       }
+    }
+    if (!job.artifact && job.task === "image" && job.status === "completed") {
+      mediaSection.append(el("p", "reference-unavailable", "Generated image not retained or removed. Job metrics remain available."));
     }
     if (references.length) {
       mediaSection.append(el("h4", "reference-heading", `Reference images · ${references.length}`));

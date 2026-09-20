@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 
 G = Path(__file__).resolve().parents[1] / "gateway"
-VERSION = "9b5-20260920"
+VERSION = "9c1-20260920"
 
 def test_distinct_diagnostics_css_and_versioned_html():
     html = (G / "dashboard.html").read_text(encoding="utf-8")

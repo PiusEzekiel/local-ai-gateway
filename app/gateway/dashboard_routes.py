@@ -19,6 +19,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from .analytics import resolve_analytics_range
 from .artifact_store import ArtifactStore
+from .artifact_health import public_availability
 from .config import Settings
 from .contracts import GatewayError
 from .diagnostics import redact_diagnostic, build_diagnostic_bundle
@@ -79,11 +80,11 @@ def create_dashboard_router(
         result["usage"] = usage if any(value is not None for value in usage.values()) else None
         if result.get("artifact_id"):
             artifact_id = result["artifact_id"]
-            result["artifact"] = {
-                "id": artifact_id,
-                "url": f"/dashboard/api/artifacts/{artifact_id}",
-                "thumbnail_url": f"/dashboard/api/artifacts/{artifact_id}/thumbnail",
-            }
+            record = job_store.get_artifact(artifact_id) if job_store else None
+            if record:
+                result["artifact"] = public_artifact(record)
+            else:
+                result["artifact_status"] = "record_missing"
         return result
 
 
@@ -96,6 +97,7 @@ def create_dashboard_router(
         } | {
             "url": f"/dashboard/api/artifacts/{artifact_id}",
             "thumbnail_url": f"/dashboard/api/artifacts/{artifact_id}/thumbnail",
+            "availability": public_availability(artifact_store, artifact),
         }
 
 
@@ -238,8 +240,15 @@ def create_dashboard_router(
         references = job_store.get_references(job_id) if job_store else []
         for reference in references:
             if reference.get("artifact_id"):
-                reference["url"] = f"/dashboard/api/artifacts/{reference['artifact_id']}"
-                reference["thumbnail_url"] = f"/dashboard/api/artifacts/{reference['artifact_id']}/thumbnail"
+                record = job_store.get_artifact(reference['artifact_id']) if job_store else None
+                if record:
+                    reference['availability'] = public_availability(artifact_store, record)
+                    reference["url"] = f"/dashboard/api/artifacts/{reference['artifact_id']}"
+                    reference["thumbnail_url"] = f"/dashboard/api/artifacts/{reference['artifact_id']}/thumbnail"
+                else:
+                    reference['availability'] = {'original': 'record_missing', 'thumbnail': 'record_missing'}
+            else:
+                reference['availability'] = {'original': 'not_retained_or_removed', 'thumbnail': 'not_retained_or_removed'}
         result["references"] = references
         artifact = job_store.get_artifact_for_job(job_id) if job_store else None
         if artifact:
@@ -494,13 +503,13 @@ def create_dashboard_router(
                 if row.get("error_type") else None
             )
             if row.get("artifact_id"):
-                item["artifact"] = public_artifact({
-                    "id": row["artifact_id"], "artifact_type": "image", "mime_type": row["mime_type"],
-                    "width": row["width"], "height": row["height"], "size_bytes": row["size_bytes"],
-                    "created_at": row["created_at"],
-                })
+                record = job_store.get_artifact(row['artifact_id']) if job_store else None
+                item["artifact"] = public_artifact(record) if record else None
+                if not record:
+                    item['artifact_status'] = 'record_missing'
             else:
                 item["artifact"] = None
+                item['artifact_status'] = 'not_retained_or_removed' if row.get('status') == 'completed' else 'generation_failed'
             items.append(item)
         next_cursor = encode_cursor(rows[-1]["created_at"], rows[-1]["job_id"]) if has_more and rows else None
         return {"items": items, "next_cursor": next_cursor}

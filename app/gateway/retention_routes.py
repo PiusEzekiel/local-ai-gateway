@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Query
 from .config import Settings
 from .contracts import GatewayError
 from .retention import RetentionService
+from .artifact_health import inspect_artifact_health
 from .job_history import JobHistory
 from .live_events import LiveEventBus
 
@@ -17,6 +18,14 @@ def create_retention_router(*, require_token: Callable[..., None],
                             effective_settings: Settings, history: JobHistory,
                             events: LiveEventBus | None = None) -> APIRouter:
     router = APIRouter()
+
+    @router.get('/dashboard/api/storage/health', dependencies=[Depends(require_token)])
+    async def storage_health() -> dict[str, Any]:
+        if retention is None:
+            raise GatewayError('unavailable', 'Artifact health is unavailable.', 503)
+        return await asyncio.to_thread(
+            inspect_artifact_health, retention.store, retention.artifacts,
+        )
 
     @router.get('/dashboard/api/storage/preview', dependencies=[Depends(require_token)])
     async def storage_preview(include_orphans: bool = Query(default=False)) -> dict[str, Any]:

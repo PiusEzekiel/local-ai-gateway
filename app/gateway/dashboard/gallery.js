@@ -1,5 +1,5 @@
-import {getJob, requestBlob} from "./api.js?v=9b5-20260920";
-import {compact, duration} from "./jobs.js?v=9b5-20260920";
+import {getJob, requestBlob} from "./api.js?v=9c1-20260920";
+import {compact, duration} from "./jobs.js?v=9c1-20260920";
 
 let cardObjectUrls = [];
 let lightboxObjectUrl = null;
@@ -25,7 +25,8 @@ let referenceRequests = new AbortController();
 let viewerRequests = null;
 
 function imageFailureMessage(error) {
-  if (error?.status === 404 || error?.status === 410) return "Image unavailable or expired";
+  if (error?.type === "artifact_missing") return "Archived image file missing";
+  if (error?.status === 404 || error?.status === 410) return "No retained image or record removed";
   if (error?.status === 401 || error?.status === 403) return "Image access denied — reconnect";
   return "Preview temporarily unavailable";
 }
@@ -102,12 +103,20 @@ export function renderGallery(container, galleryItems) {
       loadProtectedImage(image, item.artifact.thumbnail_url || item.artifact.url, item.artifact.url, cardGeneration, signal);
       card.addEventListener("click", () => openLightbox(index));
     } else {
-      thumb.append(el("span", "", item.error?.type || "Image unavailable"));
+      const unavailable = item.artifact_status === "not_retained_or_removed"
+        ? "Not retained or removed"
+        : item.artifact_status === "record_missing" ? "Artifact record missing"
+        : item.error?.type || "Image unavailable";
+      thumb.append(el("span", "", unavailable));
       card.addEventListener("click", () => document.dispatchEvent(new CustomEvent("gallery:inspect-job", {detail: item.job_id})));
     }
     const info = el("span", "gallery-info");
     info.append(el("strong", "", item.request_id), el("span", "", `${item.status} · ${duration(item.elapsed_ms)} · ${item.model}`),
       el("span", "", `${item.reference_count || 0} refs · ${compact(item.total_tokens)} tok`));
+    if (item.artifact?.availability?.original && item.artifact.availability.original !== "available"
+        && item.artifact.availability.original !== "unknown") {
+      info.append(el("span", "reference-unavailable", "Archived original missing or inaccessible"));
+    }
     card.append(thumb, info);
     container.append(card);
   });

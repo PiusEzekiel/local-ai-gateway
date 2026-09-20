@@ -11,7 +11,7 @@ from test_module_9a2 import AUTH, make_app
 
 G = Path(__file__).resolve().parents[1] / 'gateway'
 D = G / 'dashboard'
-VERSION = '9b5-20260920'
+VERSION = '9c1-20260920'
 
 
 def test_authored_job_detail_links_archived_reference_to_gallery_output(tmp_path, monkeypatch):
@@ -110,7 +110,7 @@ def test_removed_and_unretained_references_have_explicit_states():
     jobs = (D/'jobs.js').read_text(encoding='utf8')
     gallery = (D/'gallery.js').read_text(encoding='utf8')
     assert 'Not retained' in jobs
-    assert 'has expired' in jobs
+    assert 'has been removed' in jobs
     assert 'Unavailable' in gallery
     assert 'no longer retained' in gallery
     assert 'References unavailable. The output image is unaffected.' in gallery
