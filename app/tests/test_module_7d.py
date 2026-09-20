@@ -44,11 +44,11 @@ def test_settings_assets_are_versioned_and_ui_is_modular():
     html = (GATEWAY / "dashboard.html").read_text(encoding="utf-8")
     dashboard = (GATEWAY / "dashboard" / "dashboard.js").read_text(encoding="utf-8")
     settings = (GATEWAY / "dashboard" / "settings.js").read_text(encoding="utf-8")
-    assert "/dashboard/assets/settings.css?v=9c2-20260920" in html
-    assert 'from "./settings.js?v=9c2-20260920"' in dashboard
+    assert "/dashboard/assets/settings.css?v=9c3-20260920" in html
+    assert 'from "./settings.js?v=9c3-20260920"' in dashboard
     assert 'initializeSettings();' in dashboard
     assert 'if (page === "settings") loadSettings();' in dashboard
-    assert 'from "./api.js?v=9c2-20260920"' in settings
+    assert 'from "./api.js?v=9c3-20260920"' in settings
     assert "innerHTML" not in settings
     assert "DELETE_EXPIRED_DATA" in settings and "DELETE_RETAINED_DATA" in settings
     assert 'getStoragePreview($("settingsIncludeOrphans").checked)' in settings

@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Local AI Gateway</title>
-  <link rel="stylesheet" href="/dashboard/assets/dashboard.css?v=9c2-20260920">
-  <link rel="stylesheet" href="/dashboard/assets/diagnostics.css?v=9c2-20260920">
-  <link rel="stylesheet" href="/dashboard/assets/settings.css?v=9c2-20260920">
-  <link rel="stylesheet" href="/dashboard/assets/sync.css?v=9c2-20260920">
-  <link rel="stylesheet" href="/dashboard/assets/gallery-polish.css?v=9c2-20260920">
-  <link rel="stylesheet" href="/dashboard/assets/session.css?v=9c2-20260920">
-  <link rel="stylesheet" href="/dashboard/assets/shell.css?v=9c2-20260920">
-  <link rel="stylesheet" href="/dashboard/assets/artifact-health.css?v=9c2-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/dashboard.css?v=9c3-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/diagnostics.css?v=9c3-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/settings.css?v=9c3-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/sync.css?v=9c3-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/gallery-polish.css?v=9c3-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/session.css?v=9c3-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/shell.css?v=9c3-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/artifact-health.css?v=9c3-20260920">
 </head>
 <body>
   <div class="auth-screen" id="authScreen">
@@ -219,6 +219,7 @@
                   <p id="inventoryNote" class="settings-muted" role="status" aria-live="polite">Select Investigate files for a detailed, read-only breakdown.</p><div id="inventoryRows" class="artifact-inventory-rows"></div><div id="inventorySamples" class="artifact-inventory-samples" aria-label="Anonymized file examples"></div>
                 </div>
                 <div class="settings-storage-grid"><div class="settings-mini"><span>Artifact storage</span><strong id="storageUsed">—</strong><small id="storageLimit">Configured limit —</small></div><div class="settings-mini"><span>Registered data</span><strong id="storageRegistered">—</strong><small>Artifact files and thumbnails</small></div><div class="settings-mini"><span>Preview recovery</span><strong id="storageRecoverable">—</strong><small>Estimated artifact bytes</small></div></div>
+                <div class="artifact-health-grid storage-budget-metrics" aria-label="Storage limit accounting"><div class="settings-mini"><span>Not linked to SQLite / other files</span><strong id="storageUnregistered">—</strong><small>All unregistered and unrecognized regular files; not necessarily disposable</small></div><div class="settings-mini"><span>Over configured limit now</span><strong id="storageOverage">—</strong><small>The limit is best-effort, not a strict disk cap</small></div><div class="settings-mini"><span>Projected use after preview</span><strong id="storageProjected">—</strong><small>Estimated if eligible files are removed; not a promise</small></div></div><p id="storageBudgetNote" class="settings-muted" role="status" aria-live="polite">Preview cleanup to calculate storage-limit accounting. Codex-owned images are excluded.</p>
                 <div class="settings-privacy-grid"><div class="settings-mini"><span>Expired jobs</span><strong id="storageJobs">—</strong></div><div class="settings-mini"><span>Eligible artifacts</span><strong id="storageArtifacts">—</strong></div><div class="settings-mini"><span>Old quota snapshots</span><strong id="storageQuota">—</strong></div></div>
                 <label class="settings-check"><input type="checkbox" id="settingsIncludeOrphans"> Include unregistered artifact files older than 24 hours</label>
                 <p id="storageNote" class="settings-muted">A preview is required before cleanup. Active and queued jobs are protected.</p>
@@ -247,6 +248,6 @@
       <div id="lightboxReferences" class="lightbox-references" aria-label="Reference images for this generation" hidden></div>
     </div>
   </div>
-  <script type="module" src="/dashboard/assets/dashboard.js?v=9c2-20260920"></script>
+  <script type="module" src="/dashboard/assets/dashboard.js?v=9c3-20260920"></script>
 </body>
 </html>

@@ -9,7 +9,7 @@ import re
 
 G = Path(__file__).resolve().parents[1] / 'gateway'
 D = G / 'dashboard'
-VERSION = '9c2-20260920'
+VERSION = '9c3-20260920'
 
 
 class IDs(HTMLParser):

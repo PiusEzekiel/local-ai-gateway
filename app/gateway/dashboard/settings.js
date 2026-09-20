@@ -2,7 +2,7 @@
 import {
   getSettings, patchSettings, getPrivacyStorage, purgePrivacy,
   getStoragePreview, getStorageHealth, getStorageInventory, runStorageCleanup, getSystemInfo,
-} from "./api.js?v=9c2-20260920";
+} from "./api.js?v=9c3-20260920";
 
 const $ = id => document.getElementById(id);
 const sections = [
@@ -231,6 +231,16 @@ async function refreshStorage({quiet = false} = {}) {
     $("storageLimit").textContent = `Configured limit: ${formatBytes(used.limit_bytes)}`;
     $("storageRegistered").textContent = formatBytes(used.registered_file_bytes);
     $("storageRecoverable").textContent = formatBytes(candidates.estimated_artifact_bytes);
+    $("storageUnregistered").textContent = used.accounting_consistent === false
+      ? "Temporarily unavailable" : formatBytes(used.unregistered_or_other_bytes);
+    $("storageOverage").textContent = formatBytes(used.over_limit_bytes);
+    $("storageProjected").textContent = formatBytes(used.estimated_post_cleanup_bytes);
+    const overage = used.estimated_remaining_over_limit_bytes || 0;
+    $("storageBudgetNote").textContent = used.accounting_consistent === false
+      ? "File and database measurements changed during inspection; refresh when jobs finish. No data deleted."
+      : (overage > 0
+        ? `Best-effort limit: this preview would still leave about ${formatBytes(overage)} above the limit. Protected/recent registered files, unregistered files, and unknown files are NOT automatically deleted. Repeat later or inspect before making any cleanup decision.`
+        : `Best-effort limit: ${used.over_limit_bytes ? "previewed reclaim may bring usage under the limit" : "current managed usage is under the limit"}. The accounting includes unregistered files and staging files, excludes Codex-owned images, and is read-only.`);
     $("storageJobs").textContent = candidates.job_count ?? "—";
     $("storageArtifacts").textContent = candidates.artifact_count ?? "—";
     $("storageQuota").textContent = candidates.quota_snapshot_count ?? "—";
@@ -243,6 +253,7 @@ async function refreshStorage({quiet = false} = {}) {
     if (!quiet) status("Read-only storage preview updated.", "success");
   } catch (error) {
     $("storageNote").textContent = `Preview unavailable: ${error.message}`;
+    $("storageBudgetNote").textContent = "Storage-limit accounting unavailable. Nothing deleted.";
     if (!quiet) status(`Storage preview failed: ${error.message}`, "error");
   }
 }

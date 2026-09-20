@@ -59,8 +59,24 @@ class RetentionService:
             if artifact['id'] not in selected_artifacts and artifact['created_at'] < artifact_cutoff:
                 selected_artifacts[artifact['id']] = artifact
 
-        known_bytes = sum(self.artifacts.record_file_bytes(a) for a in all_artifacts)
-        actual_usage = self.artifacts.disk_usage()
+        # Count each existing registered file exactly once.  A duplicate/legacy
+        # DB reference must not make registered usage exceed physical bytes.
+        registered_paths: set[Path] = set()
+        for artifact in all_artifacts:
+            for key in ('storage_path', 'thumbnail_path'):
+                value = artifact.get(key)
+                path = self.artifacts._managed_path(value) if value else None
+                if path is not None:
+                    registered_paths.add(path)
+        with self.artifacts._lock:
+            known_bytes = 0
+            for path in registered_paths:
+                try:
+                    if path.is_file():
+                        known_bytes += path.stat().st_size
+                except OSError:
+                    pass
+            actual_usage = self.artifacts.disk_usage()
         freed = sum(self.artifacts.record_file_bytes(a) for a in selected_artifacts.values())
         # Storage quota is a best-effort target, not permission to remove data
         # from active jobs. Delete the oldest completed/failed artifacts first.
@@ -93,6 +109,20 @@ class RetentionService:
             orphans_truncated = len(orphan_files) > MAX_ORPHANS_PER_RUN
             orphan_files = orphan_files[:MAX_ORPHANS_PER_RUN]
 
+        # An observed directory limit is a BEST-EFFORT target; registered
+        # cleanup cannot free in-flight, unknown-name or new managed files.
+        # Orphans only contribute to the projection when explicitly included.
+        estimated_artifact_bytes = sum(self.artifacts.record_file_bytes(a) for a in selected_artifacts)
+        orphan_bytes = 0
+        for file_path in orphan_files:
+            try:
+                if file_path.is_file() and not file_path.is_symlink():
+                    orphan_bytes += file_path.stat().st_size
+            except OSError:
+                pass
+        estimated_reclaim = min(actual_usage['bytes'], estimated_artifact_bytes + orphan_bytes)
+        projected_bytes = actual_usage['bytes'] - estimated_reclaim
+        over_limit_bytes = max(0, actual_usage['bytes'] - limit_bytes)
         return {
             'dry_run': True,
             'observed_at': instant.isoformat(),
@@ -104,11 +134,17 @@ class RetentionService:
                 'max_artifact_storage_mb': settings.max_artifact_storage_mb,
             },
             'storage': {'bytes': actual_usage['bytes'], 'file_count': actual_usage['file_count'],
-                        'limit_bytes': limit_bytes, 'registered_file_bytes': known_bytes},
+                        'limit_bytes': limit_bytes, 'registered_file_bytes': known_bytes,
+                        'unregistered_or_other_bytes': max(0, actual_usage['bytes'] - known_bytes),
+                        'accounting_consistent': known_bytes <= actual_usage['bytes'],
+                        'over_limit_bytes': over_limit_bytes,
+                        'estimated_post_cleanup_bytes': projected_bytes,
+                        'estimated_remaining_over_limit_bytes': max(0, projected_bytes - limit_bytes),
+                        'limit_is_strict': False},
             'candidates': {'job_count': len(jobs), 'artifact_count': len(selected_artifacts),
                            'quota_snapshot_count': quota_count, 'orphan_file_count': len(orphan_files),
-                           'estimated_artifact_bytes': sum(self.artifacts.record_file_bytes(a) for a in selected_artifacts),
-                           'orphan_bytes': sum(f.stat().st_size for f in orphan_files if f.exists())},
+                           'estimated_artifact_bytes': estimated_artifact_bytes,
+                           'orphan_bytes': orphan_bytes},
             'truncated': jobs_truncated or truncated_artifacts or orphans_truncated,
             # Internal-only plan entries. These are deliberately never exposed
             # to the browser: they contain filesystem paths and job IDs.

@@ -8,8 +8,8 @@
 import {
   getDiagnostics, getDiagnosticsSummary, getDiagnostic,
   getDiagnosticBundle, requestBlob,
-} from "./api.js?v=9c2-20260920";
-import {compact, duration} from "./jobs.js?v=9c2-20260920";
+} from "./api.js?v=9c3-20260920";
+import {compact, duration} from "./jobs.js?v=9c3-20260920";
 
 const $ = id => document.getElementById(id);
 const node = (tag, className = "", value) => {
