@@ -13,6 +13,7 @@ import logging
 import os
 from pathlib import Path
 import secrets
+import subprocess
 import time
 from typing import Any, Literal
 from uuid import uuid4
@@ -44,6 +45,7 @@ from .reference_images import (
     download_reference_image,
 )
 from .reference_cache import ReferenceCache
+from .episode_sessions import EpisodeSessions
 from .codex_runner import CodexRunner as _CodexRunner, extract_usage, used_web_search
 from .dashboard_routes import create_dashboard_router
 from .generation_routes import create_generation_router
@@ -122,6 +124,14 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
         except Exception:
             LOG.exception("reference_cache_unavailable")
 
+    episode_sessions = None
+    if settings.episode_sessions_enabled:
+        try:
+            episode_sessions = EpisodeSessions(data_dir / "episode-sessions.sqlite3")
+        except Exception as exc:
+            # Do not silently revert to independent sessions for an opted-in user.
+            raise RuntimeError("Episode session storage is unavailable.") from exc
+
     runner = runner or CodexRunner(
         [settings.codex_exe], model=settings.model,
         reference_cache=reference_cache if settings.reference_cache_enabled else None,
@@ -163,6 +173,24 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
         if not Path(settings.codex_exe).is_file():
 
             raise RuntimeError(f"Codex executable not found: {settings.codex_exe}")
+
+        if settings.episode_sessions_enabled and not runner_was_provided:
+            # Read-only, quota-free CLI capability check. We do not silently
+            # downgrade opted-in episodes to ephemeral runs.
+            creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+            try:
+                probe = await asyncio.create_subprocess_exec(
+                    settings.codex_exe, "exec", "resume", "--help",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    creationflags=creationflags,
+                )
+                out, err = await asyncio.wait_for(probe.communicate(), timeout=10)
+            except (OSError, asyncio.TimeoutError) as exc:
+                raise RuntimeError("Could not verify Codex CLI episode-resume support.") from exc
+            help_text = (out + err).decode("utf-8", errors="replace")
+            if probe.returncode != 0 or "--image" not in help_text:
+                raise RuntimeError("Installed Codex CLI does not advertise image-capable exec resume; episode sessions remain unavailable.")
 
         if quota_monitor:
 
@@ -219,6 +247,8 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
                 except asyncio.CancelledError:
                     pass
             live_bus.close()
+            if episode_sessions is not None:
+                episode_sessions.close()
             if quota_monitor:
                 await quota_monitor.stop()
 
@@ -230,6 +260,7 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
     app.state.live_events = live_bus
     app.state.job_store = job_store
     app.state.reference_cache = reference_cache
+    app.state.episode_sessions = episode_sessions
     app.state.artifact_store = artifact_store
     app.state.reference_cache = reference_cache
     app.state.quota_monitor = quota_monitor
@@ -275,6 +306,7 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
         settings_manager=settings_manager,
         selected_model=selected_model,
         events=live_bus,
+        sessions=episode_sessions,
     )
     app.state.generation_runtime = generation_runtime
 
@@ -292,6 +324,24 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
 
         return {"jobs": [history.public(job) for job in history.jobs]}
 
+
+    @app.get("/dashboard/api/episode-sessions", dependencies=[Depends(require_token)])
+    async def episode_session_list() -> dict[str, Any]:
+        return {"enabled": settings.episode_sessions_enabled,
+                "sessions": episode_sessions.list() if episode_sessions else []}
+
+    @app.post("/dashboard/api/episode-sessions/reset", dependencies=[Depends(require_token)])
+    async def episode_session_reset(body: dict[str, Any]) -> dict[str, Any]:
+        if episode_sessions is None:
+            raise GatewayError("unavailable", "Episode sessions are disabled.", 503)
+        if (not isinstance(body, dict) or set(body) != {"episode_title", "confirmation"}
+                or body.get("confirmation") != "RESET_EPISODE_SESSION"
+                or not isinstance(body.get("episode_title"), str)):
+            raise GatewayError("invalid_request", "Confirm an episode_title with RESET_EPISODE_SESSION.", 422)
+        # Reset cannot interleave with a Codex turn for the same episode.
+        async with episode_sessions.lock(body["episode_title"]):
+            removed = episode_sessions.reset(body["episode_title"])
+        return {"reset": removed}
 
     # All /dashboard/api/* endpoints are registered together and receive
     # existing stores/state rather than importing the app (avoids cycles).

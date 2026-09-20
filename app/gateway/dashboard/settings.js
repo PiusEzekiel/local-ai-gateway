@@ -19,6 +19,7 @@ const help = {
   model: "Takes effect immediately and also updates future gateway requests.",
   max_concurrency: "Maximum number of concurrently executing Codex requests.",
   max_queue: "Additional requests allowed to wait beyond active workers.",
+  episode_sessions_enabled: "Opt in: chat, research and image requests with the same episode_title resume one Codex conversation. The episode title is stored in local SQLite. Restart required.",
   default_timeout_seconds: "Default time limit for text and research requests (seconds).",
   max_timeout_seconds: "Maximum allowed text/research time limit (seconds).",
   image_timeout_seconds: "Default limit for image generation (seconds).",

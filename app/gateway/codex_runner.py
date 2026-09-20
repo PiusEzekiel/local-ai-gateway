@@ -39,6 +39,29 @@ def extract_usage(stdout: bytes) -> dict[str, Any] | None:
     return None
 
 
+def extract_thread_id(stdout: bytes) -> str | None:
+    """Read the CLI's actual UUID; never select the most recent global session."""
+    for line in stdout.decode("utf-8", errors="replace").splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("type") == "thread.started":
+            candidate = event.get("thread_id")
+            try:
+                return str(UUID(candidate)) if isinstance(candidate, str) else None
+            except ValueError:
+                return None
+    return None
+
+
+def ensure_session_id(stdout: bytes, expected: str | None) -> str:
+    observed = extract_thread_id(stdout)
+    if not observed or (expected and observed != str(UUID(expected))):
+        raise GatewayError("invalid_response", "Codex did not confirm the expected episode session.", 502)
+    return observed
+
+
 def used_web_search(stdout: bytes) -> bool:
 
     for line in stdout.decode("utf-8", errors="replace").splitlines():
@@ -162,6 +185,8 @@ class CodexRunner:
         model: str | None = None,
         request_id: str | None = None,
         progress: Callable[[str], None] | None = None,
+        session_id: str | None = None,
+        persistent: bool = False,
     ) -> RunResult:
         """Run a normal text/JSON Codex request with concise operational logging."""
         log_request_id = request_id or "unknown"
@@ -198,7 +223,7 @@ class CodexRunner:
 
             args.extend([
                 "exec",
-                "--ephemeral",
+                *(["--ephemeral"] if not persistent else []),
                 "--ignore-user-config",
                 "--skip-git-repo-check",
                 "--sandbox", "read-only",
@@ -215,9 +240,11 @@ class CodexRunner:
                 schema_path.write_text(json.dumps(schema), encoding="utf-8")
                 args.extend(["--output-schema", str(schema_path)])
 
-            # The text route still uses a positional prompt because it does not
-            # attach --image arguments and therefore is not affected by the
-            # current greedy --image parsing issue.
+            # --output-schema and --output-last-message are exec-global flags.
+            # Codex's resume subcommand receives a UUID, never --last (which
+            # could resume a different operator conversation on this computer).
+            if persistent and session_id:
+                args.extend(["resume", str(UUID(session_id))])
             args.append(prompt)
 
             creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
@@ -351,11 +378,13 @@ class CodexRunner:
                 len(raw),
             )
 
+            confirmed_thread = ensure_session_id(stdout, session_id) if persistent else None
             return RunResult(
                 response=response,
                 raw_response=raw,
                 usage=extract_usage(stdout),
                 web_search_used=used_web_search(stdout),
+                thread_id=confirmed_thread,
             )
 
 
@@ -411,6 +440,8 @@ class CodexRunner:
         progress: Callable[[str], None] | None = None,
         reference_ready: Callable[[int, ImageReference, Path], None] | None = None,
         reference_downloader: Callable[[ImageReference, Path, int, str], Path] | None = None,
+        session_id: str | None = None,
+        persistent: bool = False,
     ) -> ImageRunResult:
         """Generate one image and return its artifact data and completion telemetry.
 
@@ -531,7 +562,7 @@ class CodexRunner:
                 "--enable", "image_generation",
                 "-c", 'web_search="disabled"',
                 "exec",
-                "--ephemeral",
+                *(["--ephemeral"] if not persistent else []),
                 "--ignore-user-config",
                 "--skip-git-repo-check",
                 "--sandbox", "read-only",
@@ -542,9 +573,28 @@ class CodexRunner:
             if model or self.model:
                 args.extend(["--model", model or self.model])
 
+            # Resume by exact UUID, never by last-used global conversation.
+            # Image attachment belongs to the resume subcommand on resumed turns.
+            if persistent and session_id:
+                args.extend(["resume", str(UUID(session_id))])
+
             # Repeat --image once per local reference image.
             for reference_path in reference_paths:
                 args.extend(["--image", str(reference_path)])
+
+            # Capture a before-snapshot of this thread's images. A resumed
+            # conversation contains earlier scenes; newest mtime alone is not
+            # evidence that *this* turn generated a new image.
+            codex_home = Path(os.getenv("CODEX_HOME") or Path.home() / ".codex")
+            prior_dir = (codex_home / "generated_images" / str(UUID(session_id))) if persistent and session_id else None
+            def image_fingerprint(path: Path) -> tuple[int, int] | None:
+                try:
+                    stat = path.stat()
+                    return stat.st_mtime_ns, stat.st_size
+                except OSError:
+                    return None
+            prior_images = {path: image_fingerprint(path)
+                            for path in prior_dir.glob("*") if path.is_file()} if prior_dir and prior_dir.is_dir() else {}
 
             # Log only the safe command shape, not full temp paths or prompt.
             LOG.info(
@@ -693,41 +743,11 @@ class CodexRunner:
             # Locate the Codex thread and generated image
             # -----------------------------------------------------------
 
-            thread_id = None
-
-            for line in stdout.decode("utf-8", errors="replace").splitlines():
-                try:
-                    event = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-
-                if event.get("type") == "thread.started":
-                    thread_id = event.get("thread_id")
-                    break
-
-            LOG.info(
-                "image_codex_thread request_id=%s thread_id=%s",
-                log_request_id,
-                thread_id or "missing",
-            )
-
-            try:
-                parsed_thread_id = UUID(thread_id) if isinstance(thread_id, str) else None
-            except ValueError:
-                parsed_thread_id = None
-
-            if parsed_thread_id is None:
-                LOG.warning(
-                    "image_thread_missing request_id=%s events=%s diagnostic=%s",
-                    log_request_id,
-                    event_summary,
-                    codex_failure_diagnostic(stderr, stdout),
-                )
-                raise GatewayError(
-                    "invalid_response",
-                    "Codex did not report an image job ID.",
-                    502,
-                )
+            thread_id = ensure_session_id(stdout, session_id) if persistent else extract_thread_id(stdout)
+            LOG.info("image_codex_thread request_id=%s thread_id=%s", log_request_id,
+                     thread_id or "missing")
+            if thread_id is None:
+                raise GatewayError("invalid_response", "Codex did not report an image job ID.", 502)
 
             codex_home = Path(os.getenv("CODEX_HOME") or Path.home() / ".codex")
             image_dir = codex_home / "generated_images" / thread_id
@@ -767,7 +787,15 @@ class CodexRunner:
                     502,
                 )
 
-            image_path = max(images, key=lambda path: path.stat().st_mtime)
+            # On resume: only files created/changed during this turn qualify.
+            if persistent and session_id:
+                images = [path for path in images
+                          if path not in prior_images or image_fingerprint(path) != prior_images[path]]
+                if not images:
+                    raise GatewayError("invalid_response",
+                                       "Codex resumed but did not create a new image for this turn.", 502)
+
+            image_path = max(images, key=lambda path: path.stat().st_mtime_ns)
             mime_type = image_types[image_path.suffix.lower()]
 
             LOG.info(

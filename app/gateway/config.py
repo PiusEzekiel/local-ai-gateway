@@ -119,6 +119,7 @@ class Settings:
     quota_snapshot_retention_days: int = 30
     max_artifact_storage_mb: int = 10240
     cleanup_interval_hours: int = 24
+    episode_sessions_enabled: bool = False
     reference_cache_enabled: bool = False
     reference_cache_ttl_seconds: int = REFERENCE_CACHE_DEFAULT_TTL_SECONDS
     reference_cache_retention_days: int = REFERENCE_CACHE_DEFAULT_RETENTION_DAYS
@@ -164,6 +165,7 @@ class Settings:
             quota_snapshot_retention_days=int(os.getenv("AI_GATEWAY_QUOTA_RETENTION_DAYS", "30")),
             max_artifact_storage_mb=int(os.getenv("AI_GATEWAY_MAX_ARTIFACT_MB", "10240")),
             cleanup_interval_hours=int(os.getenv("AI_GATEWAY_CLEANUP_INTERVAL_HOURS", "24")),
+            episode_sessions_enabled=os.getenv("AI_GATEWAY_EPISODE_SESSIONS", "0").lower() in {"1", "true", "yes"},
             reference_cache_enabled=os.getenv("AI_GATEWAY_REFERENCE_CACHE", "0").lower() in {"1", "true", "yes"},
             reference_cache_ttl_seconds=int(os.getenv(
                 "AI_GATEWAY_REFERENCE_CACHE_TTL_SECONDS", str(REFERENCE_CACHE_DEFAULT_TTL_SECONDS)

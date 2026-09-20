@@ -54,6 +54,7 @@ FIELD_SPECS: dict[str, FieldSpec] = {
     "model": FieldSpec(str, "gpt-5.6-luna", False, env="AI_GATEWAY_MODEL", label="Default model", group="model"),
     "max_concurrency": FieldSpec(int, 1, True, 1, 16, "AI_GATEWAY_MAX_CONCURRENCY", label="Concurrent workers", group="execution"),
     "max_queue": FieldSpec(int, 4, True, 0, 128, "AI_GATEWAY_MAX_QUEUE", label="Maximum queued jobs", group="execution"),
+    "episode_sessions_enabled": FieldSpec(bool, False, True, env="AI_GATEWAY_EPISODE_SESSIONS", label="Persistent episode sessions", group="execution"),
     "default_timeout_seconds": FieldSpec(int, 120, True, 5, 300, "AI_GATEWAY_TIMEOUT_SECONDS", label="Default text / research timeout", group="timeouts"),
     "max_timeout_seconds": FieldSpec(int, 300, True, 5, 300, "AI_GATEWAY_MAX_TIMEOUT_SECONDS", label="Maximum text / research timeout", group="timeouts"),
     "image_timeout_seconds": FieldSpec(int, 600, True, 30, 900, "AI_GATEWAY_IMAGE_TIMEOUT_SECONDS", label="Default image timeout", group="timeouts"),

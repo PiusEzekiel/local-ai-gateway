@@ -6,6 +6,8 @@ state. Concurrency is fixed for each app instance until restart.
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
+from typing import AsyncIterator
 from dataclasses import dataclass
 import logging
 from typing import Any, Callable
@@ -16,6 +18,7 @@ from .job_history import JobHistory
 from .job_store import JobStore
 from .settings_manager import SettingsManager
 from .live_events import LiveEventBus
+from .episode_sessions import EpisodeSessions
 
 LOG = logging.getLogger("uvicorn.error")
 
@@ -41,6 +44,7 @@ class GenerationContext:
     slots: asyncio.Semaphore
     counter_lock: asyncio.Lock
     events: LiveEventBus | None = None
+    sessions: EpisodeSessions | None = None
 
     def worker_change(self) -> None:
         if self.events:
@@ -65,3 +69,13 @@ class GenerationContext:
                 self.job_store.save_output(job["id"], output)
             except Exception:
                 LOG.exception("retained_output_save_failed job_id=%s", job["id"])
+
+
+@asynccontextmanager
+async def episode_turn(ctx: GenerationContext, title: str | None) -> AsyncIterator[str | None]:
+    """One in-flight turn per title across image, text and research routes."""
+    if not title or not ctx.sessions:
+        yield None
+        return
+    async with ctx.sessions.lock(title):
+        yield ctx.sessions.get(title)

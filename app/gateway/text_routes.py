@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
 from .contracts import ChatCompletionRequest, GatewayError, GenerateRequest
-from .generation_state import GenerationContext
+from .generation_state import GenerationContext, episode_turn
 from .schema_validation import resolve_schema
 
 LOG = logging.getLogger("uvicorn.error")
@@ -127,19 +127,32 @@ def create_text_router(ctx: GenerationContext) -> APIRouter:
 
                 )
 
-            result = await ctx.runner.run(
-                prompt=prompt,
-                schema=schema,
-                web_search=(task == "research"),
-                timeout_seconds=remaining,
-                model=model,
-                request_id=request.request_id,
-                progress=lambda stage: ctx.history.update(
-                    job,
-                    status="running",
-                    stage=stage,
-                ),
-            )
+            async with episode_turn(ctx, request.episode_title) as previous_thread:
+                remaining = timeout - (time.monotonic() - started)
+                if remaining <= 0:
+                    raise GatewayError("timeout", "Timed out waiting for the episode session.", 504)
+                session_args = ({"persistent": True, "session_id": previous_thread}
+                                if ctx.sessions and request.episode_title else {})
+                try:
+                    result = await ctx.runner.run(
+                        prompt=prompt,
+                        schema=schema,
+                        web_search=(task == "research"),
+                        timeout_seconds=remaining,
+                        model=model,
+                        request_id=request.request_id,
+                        progress=lambda stage: ctx.history.update(
+                            job, status="running", stage=stage,
+                        ),
+                        **session_args,
+                    )
+                except BaseException:
+                    # A failed/aborted CLI may have advanced its own rollout.
+                    if previous_thread and ctx.sessions and request.episode_title:
+                        ctx.sessions.mark_uncertain(request.episode_title)
+                    raise
+                if ctx.sessions and request.episode_title:
+                    ctx.sessions.record(request.episode_title, result.thread_id, result.usage)
 
             duration_ms = round((time.monotonic() - started) * 1000)
 
@@ -258,6 +271,7 @@ def create_text_router(ctx: GenerationContext) -> APIRouter:
             timeout_seconds=request.timeout_seconds,
 
             codex_model=request.codex_model,
+            episode_title=request.episode_title,
 
         )
 
