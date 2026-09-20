@@ -26,7 +26,11 @@ from .artifact_store import ArtifactStore
 from .job_store import JobStore
 from .quota_monitor import QuotaMonitor
 from .settings_manager import SettingsManager, apply_saved_settings
-from .config import DATA_DIR, DEFAULT_MODEL, MODELS, SETTINGS_PATH, Settings, find_codex_executable, validate_quota_poll_seconds
+from .config import (
+    DATA_DIR, DEFAULT_MODEL, MODELS, SETTINGS_PATH, Settings,
+    find_codex_executable, validate_quota_poll_seconds,
+    validate_reference_cache_settings,
+)
 from .contracts import (
     ChatCompletionRequest, ChatMessage, ChatResponseFormat, GatewayError,
     GenerateRequest, ImageReference, ImageRequest, ImageRunResult,
@@ -39,6 +43,7 @@ from .reference_images import (
     MAX_REFERENCE_IMAGE_BYTES, allowed_reference_host, detect_image_extension,
     download_reference_image,
 )
+from .reference_cache import ReferenceCache
 from .codex_runner import CodexRunner as _CodexRunner, extract_usage, used_web_search
 from .dashboard_routes import create_dashboard_router
 from .generation_routes import create_generation_router
@@ -59,7 +64,8 @@ class CodexRunner(_CodexRunner):
     """
 
     async def run_image(self, **kwargs: Any) -> ImageRunResult:
-        kwargs.setdefault("reference_downloader", download_reference_image)
+        if self.reference_cache is None:
+            kwargs.setdefault("reference_downloader", download_reference_image)
         return await super().run_image(**kwargs)
 
 
@@ -81,8 +87,12 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
     # dashboard PATCH and the real monitor constructor. Fail clearly before
     # creating stores, workers, or an unavailable quota monitor.
     validate_quota_poll_seconds(settings.quota_poll_seconds)
-    runner = runner or CodexRunner([settings.codex_exe], model=settings.model)
-
+    validate_reference_cache_settings(
+        settings.reference_cache_enabled,
+        settings.reference_cache_ttl_seconds,
+        settings.reference_cache_retention_days,
+        settings.reference_cache_max_mb,
+    )
     if settings.max_concurrency < 1 or settings.max_queue < 0:
 
         raise ValueError("Invalid concurrency settings")
@@ -98,6 +108,24 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
             artifact_store = ArtifactStore(data_dir / "artifacts")
         except Exception:
             LOG.exception("artifact_store_unavailable")
+
+    reference_cache = None
+    if job_store is not None:
+        try:
+            reference_cache = ReferenceCache(
+                data_dir / "reference-cache",
+                job_store,
+                ttl_seconds=settings.reference_cache_ttl_seconds,
+                retention_days=settings.reference_cache_retention_days,
+                max_bytes=settings.reference_cache_max_mb * 1024 * 1024,
+            )
+        except Exception:
+            LOG.exception("reference_cache_unavailable")
+
+    runner = runner or CodexRunner(
+        [settings.codex_exe], model=settings.model,
+        reference_cache=reference_cache if settings.reference_cache_enabled else None,
+    )
 
     if job_store:
         try:
@@ -157,6 +185,18 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
                     except Exception:
                         LOG.exception("automatic_retention_cleanup_failed")
             cleanup_task = asyncio.create_task(cleanup_periodically())
+        cache_cleanup_task = None
+        if reference_cache and settings.reference_cache_enabled:
+            async def cleanup_reference_cache_periodically():
+                while True:
+                    await asyncio.sleep(settings.cleanup_interval_hours * 3600)
+                    try:
+                        result = await asyncio.to_thread(reference_cache.cleanup)
+                        if result["removed"]:
+                            live_bus.publish("storage.changed", {})
+                    except Exception:
+                        LOG.exception("automatic_reference_cache_cleanup_failed")
+            cache_cleanup_task = asyncio.create_task(cleanup_reference_cache_periodically())
         try:
             yield
         finally:
@@ -164,6 +204,12 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
                 cleanup_task.cancel()
                 try:
                     await cleanup_task
+                except asyncio.CancelledError:
+                    pass
+            if cache_cleanup_task is not None:
+                cache_cleanup_task.cancel()
+                try:
+                    await cache_cleanup_task
                 except asyncio.CancelledError:
                     pass
             if quota_events_task is not None:
@@ -183,7 +229,9 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
     app.state.history = history
     app.state.live_events = live_bus
     app.state.job_store = job_store
+    app.state.reference_cache = reference_cache
     app.state.artifact_store = artifact_store
+    app.state.reference_cache = reference_cache
     app.state.quota_monitor = quota_monitor
     app.state.settings_manager = settings_manager
     app.state.retention = retention
@@ -268,6 +316,7 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
         job_store=job_store,
         history=history,
         events=live_bus,
+        reference_cache=reference_cache,
     ))
 
     # Module 7C: read-only preview plus explicit, confirmed cleanup API.

@@ -16,7 +16,7 @@ from .diagnostics import redact_diagnostic
 
 LOG = logging.getLogger("uvicorn.error")
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 
 class JobStore:
@@ -97,7 +97,24 @@ class JobStore:
                         output_truncated INTEGER NOT NULL DEFAULT 0,
                         updated_at TEXT NOT NULL
                     );
-                    PRAGMA user_version=6;
+                    CREATE TABLE reference_cache (
+                        cache_id TEXT PRIMARY KEY,
+                        source_key TEXT NOT NULL UNIQUE,
+                        provider TEXT NOT NULL,
+                        provider_file_id TEXT,
+                        content_sha256 TEXT NOT NULL,
+                        mime_type TEXT NOT NULL,
+                        width INTEGER,
+                        height INTEGER,
+                        size_bytes INTEGER NOT NULL,
+                        storage_path TEXT NOT NULL,
+                        created_at TEXT NOT NULL,
+                        validated_at TEXT NOT NULL,
+                        last_accessed_at TEXT NOT NULL,
+                        status TEXT NOT NULL DEFAULT 'ready'
+                    );
+                    CREATE INDEX reference_cache_access_idx ON reference_cache(last_accessed_at);
+                    PRAGMA user_version=7;
                 """)
             elif version < 2:
                 columns = {row[1] for row in self._db.execute("PRAGMA table_info(jobs)")}
@@ -161,6 +178,28 @@ class JobStore:
                         updated_at TEXT NOT NULL
                     );
                     PRAGMA user_version=6;
+                """)
+            if version != 0 and version < 7:
+                self._db.executescript("""
+                    CREATE TABLE IF NOT EXISTS reference_cache (
+                        cache_id TEXT PRIMARY KEY,
+                        source_key TEXT NOT NULL UNIQUE,
+                        provider TEXT NOT NULL,
+                        provider_file_id TEXT,
+                        content_sha256 TEXT NOT NULL,
+                        mime_type TEXT NOT NULL,
+                        width INTEGER,
+                        height INTEGER,
+                        size_bytes INTEGER NOT NULL,
+                        storage_path TEXT NOT NULL,
+                        created_at TEXT NOT NULL,
+                        validated_at TEXT NOT NULL,
+                        last_accessed_at TEXT NOT NULL,
+                        status TEXT NOT NULL DEFAULT 'ready'
+                    );
+                    CREATE INDEX IF NOT EXISTS reference_cache_access_idx
+                    ON reference_cache(last_accessed_at);
+                    PRAGMA user_version=7;
                 """)
 
     # -------------------------------------------------------------------------
@@ -380,6 +419,78 @@ class JobStore:
                 "UPDATE job_references SET artifact_id=? WHERE job_id=? AND ordinal=?",
                 (artifact_id, job_id, ordinal),
             )
+
+    def get_reference_cache(self, source_key: str) -> dict[str, Any] | None:
+        with self._lock:
+            row = self._db.execute(
+                "SELECT * FROM reference_cache WHERE source_key=? AND status='ready'", (source_key,)
+            ).fetchone()
+            return dict(row) if row else None
+
+    def _list_reference_cache(self, include_retired: bool) -> list[dict[str, Any]]:
+        with self._lock:
+            query = "SELECT * FROM reference_cache"
+            if not include_retired:
+                query += " WHERE status='ready'"
+            return [dict(row) for row in self._db.execute(query)]
+
+    def list_reference_cache(self, include_retired: bool = False) -> list[dict[str, Any]]:
+        return self._list_reference_cache(include_retired)
+
+    def save_reference_cache(self, record: dict[str, Any]) -> None:
+        with self._lock, self._db:
+            self._db.execute(
+                """INSERT INTO reference_cache
+                (cache_id,source_key,provider,provider_file_id,content_sha256,mime_type,
+                 width,height,size_bytes,storage_path,created_at,validated_at,last_accessed_at,status)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                tuple(record.get(key) for key in (
+                    "cache_id", "source_key", "provider", "provider_file_id",
+                    "content_sha256", "mime_type", "width", "height", "size_bytes",
+                    "storage_path", "created_at", "validated_at", "last_accessed_at",
+                )) + ("ready",),
+            )
+
+    def replace_reference_cache(self, record: dict[str, Any], previous_cache_id: str | None) -> None:
+        with self._lock, self._db:
+            if previous_cache_id:
+                previous = self._db.execute(
+                    "SELECT source_key FROM reference_cache WHERE cache_id=?", (previous_cache_id,)
+                ).fetchone()
+                if previous:
+                    self._db.execute(
+                        "UPDATE reference_cache SET source_key=?,status='retired' WHERE cache_id=?",
+                        (f"{previous['source_key']}:{previous_cache_id}", previous_cache_id),
+                    )
+            self._db.execute(
+                """INSERT INTO reference_cache
+                (cache_id,source_key,provider,provider_file_id,content_sha256,mime_type,
+                 width,height,size_bytes,storage_path,created_at,validated_at,last_accessed_at,status)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                tuple(record.get(key) for key in (
+                    "cache_id", "source_key", "provider", "provider_file_id",
+                    "content_sha256", "mime_type", "width", "height", "size_bytes",
+                    "storage_path", "created_at", "validated_at", "last_accessed_at",
+                )) + ("ready",),
+            )
+
+    def refresh_reference_cache(self, cache_id: str, validated_at: str) -> None:
+        with self._lock, self._db:
+            self._db.execute(
+                "UPDATE reference_cache SET validated_at=?,last_accessed_at=?,status='ready' WHERE cache_id=?",
+                (validated_at, validated_at, cache_id),
+            )
+
+    def touch_reference_cache(self, cache_id: str, accessed_at: str) -> None:
+        with self._lock, self._db:
+            self._db.execute(
+                "UPDATE reference_cache SET last_accessed_at=? WHERE cache_id=? AND status='ready'",
+                (accessed_at, cache_id),
+            )
+
+    def invalidate_reference_cache(self, cache_id: str) -> None:
+        with self._lock, self._db:
+            self._db.execute("DELETE FROM reference_cache WHERE cache_id=?", (cache_id,))
 
     def get_job(self, job_id: str) -> dict[str, Any] | None:
         with self._lock:

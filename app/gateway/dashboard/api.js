@@ -117,6 +117,11 @@ export const runStorageCleanup = (includeOrphans = false) => request("/dashboard
   body: JSON.stringify({confirmation: "DELETE_EXPIRED_DATA", include_orphans: includeOrphans}),
 });
 export const getSystemInfo = () => request("/dashboard/api/system");
+export const getReferenceCache = () => request("/dashboard/api/reference-cache");
+export const clearReferenceCache = scope => request("/dashboard/api/reference-cache/clear", {
+  method: "POST", headers: {"Content-Type": "application/json"},
+  body: JSON.stringify({confirmation: "DELETE_REFERENCE_CACHE", scope}),
+});
 
 // Module 8B: native fetch stream, so the Bearer secret stays in an HTTP header.
 // Never add the token to a URL, EventSource, or an SSE event log.

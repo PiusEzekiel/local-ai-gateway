@@ -64,10 +64,12 @@ def test_router_exposes_exact_14_dashboard_methods(tmp_path):
             ("GET", "/dashboard/api/storage/health"),
             ("GET", "/dashboard/api/storage/inventory"),
             ("POST", "/dashboard/api/storage/cleanup"),
+            ("GET", "/dashboard/api/reference-cache"),
+            ("POST", "/dashboard/api/reference-cache/clear"),
             ("GET", "/dashboard/api/system"),
             ("GET", "/dashboard/api/events"),
         }
-        assert len(found) == len(DASHBOARD_ENDPOINTS) + 11
+        assert len(found) == len(DASHBOARD_ENDPOINTS) + 13
         assert callable(create_dashboard_router)
     finally:
         store.close()

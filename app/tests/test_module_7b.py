@@ -48,7 +48,7 @@ def make_app(tmp_path, monkeypatch, *, settings=None, runner=None):
 
 def test_defaults_prevent_plaintext_storage_and_keep_diagnostics(tmp_path, monkeypatch):
     api, db = make_app(tmp_path, monkeypatch)
-    assert db._db.execute("PRAGMA user_version").fetchone()[0] == 6
+    assert db._db.execute("PRAGMA user_version").fetchone()[0] == 7
     with TestClient(api) as c:
         result = c.post("/v1/generate", json={"prompt": "secret user prompt"}, headers=HEADERS)
         assert result.status_code == 200
@@ -127,7 +127,7 @@ def test_migrate_v5_preserves_jobs_and_statistics(tmp_path):
         store._db.execute("PRAGMA user_version=5")
     store.close()
     reopened = JobStore(path)
-    assert reopened._db.execute("PRAGMA user_version").fetchone()[0] == 6
+    assert reopened._db.execute("PRAGMA user_version").fetchone()[0] == 7
     assert reopened.get_job("old")["request_id"] == "old"
     assert reopened.get_usage("old")["input_tokens"] == 10
     assert reopened.get_content("old") is None

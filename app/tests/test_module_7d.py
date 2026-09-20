@@ -40,11 +40,37 @@ def test_settings_html_is_complete_and_ids_are_unique():
     assert "Chunk 7" not in html
 
 
+
+def test_reference_cache_navigation_is_permanent_and_fields_render_inside_it():
+    """Navigation must work even while settings load or when API omits cache fields."""
+    html = (GATEWAY / "dashboard.html").read_text(encoding="utf-8")
+    settings = (GATEWAY / "dashboard" / "settings.js").read_text(encoding="utf-8")
+    parser = IDs()
+    parser.feed(html)
+
+    assert 'data-settings-section="reference-cache">Reference Cache</button>' in html
+    assert 'data-settings-section="storage">Storage</button>' in html
+    for section_id in ("settings-reference-cache", "settings-storage", "referenceCacheSettings"):
+        assert parser.ids.count(section_id) == 1
+    assert 'id="settings-reference-cache-management"' not in html
+    assert html.index('id="settings-reference-cache"') < html.index('id="settings-storage"')
+    assert html.index('id="referenceCacheSettings"') < html.index('id="referenceCacheBytes"')
+    assert 'const cacheFields = $("referenceCacheSettings");' in settings
+    assert 'const list = isCache ? cacheFields : node("div", "settings-fields");' in settings
+    assert 'section.id = `settings-${group}`;' in settings
+    assert 'group === "storage" ? "settings-reference-cache"' not in settings
+    assert 'if (isCache) cacheFields.append' in settings
+    assert 'target.scrollIntoView({behavior: "auto", block: "start"});' in settings
+    for control in ("referenceCacheBytes", "referenceCacheEntries", "referenceCacheClearExpired", "referenceCacheClearUnused"):
+        assert control in parser.ids
+
+
 def test_settings_assets_are_versioned_and_ui_is_modular():
     html = (GATEWAY / "dashboard.html").read_text(encoding="utf-8")
     dashboard = (GATEWAY / "dashboard" / "dashboard.js").read_text(encoding="utf-8")
     settings = (GATEWAY / "dashboard" / "settings.js").read_text(encoding="utf-8")
     assert "/dashboard/assets/settings.css?v=9c3-20260920" in html
+    assert "/dashboard/assets/dashboard.js?v=9c3-20260920" in html
     assert 'from "./settings.js?v=9c3-20260920"' in dashboard
     assert 'initializeSettings();' in dashboard
     assert 'if (page === "settings") loadSettings();' in dashboard
@@ -123,3 +149,43 @@ def test_no_unprotected_destructive_actions(tmp_path):
         for path in ("/dashboard/api/privacy/purge", "/dashboard/api/storage/cleanup"):
             assert client.post(path, json={}).status_code == 401
             assert client.post(path, headers=HEADERS, json={}).status_code == 422
+
+
+def test_reference_cache_navigation_remains_available_before_api_render():
+    """The reference-cache anchor must exist before settings.js loads any data."""
+    html = (GATEWAY / "dashboard.html").read_text(encoding="utf-8")
+    settings = (GATEWAY / "dashboard" / "settings.js").read_text(encoding="utf-8")
+    assert 'id="settings-reference-cache"' in html
+    assert 'id="referenceCacheSettings"' in html
+    assert 'Loading reference-cache settings' in html
+    assert 'Reference-cache configuration is unavailable in this gateway response' in settings
+    assert 'const isCache = group === "storage";' in settings
+    assert 'if (section) {' in settings
+
+
+def test_settings_active_and_saved_values_use_human_readable_units():
+    """UI presentation must not expose raw cache TTL seconds as the active label."""
+    settings = (GATEWAY / "dashboard" / "settings.js").read_text(encoding="utf-8")
+    assert 'const formatSettingValue = (key, value) =>' in settings
+    assert 'case "seconds": return formatDuration(value);' in settings
+    assert 'case "hours": return formatDuration(value * 3600);' in settings
+    assert 'case "days": return plural(value, "day");' in settings
+    assert 'case "MiB": return value >= 1024' in settings
+    assert 'case "%": return `${value}%`;' in settings
+    assert 'Active: ${formatSettingValue(key, now)}' in settings
+    assert 'saved: ${formatSettingValue(key, desired)}' in settings
+    assert 'const numeric = Number(choice);' in settings
+    assert 'formatSettingValue(key, numeric)' in settings
+
+
+def test_settings_numeric_controls_preserve_original_api_units():
+    """Friendly labels must not change form values or the established release."""
+    settings = (GATEWAY / "dashboard" / "settings.js").read_text(encoding="utf-8")
+    stylesheet = (GATEWAY / "dashboard" / "settings.css").read_text(encoding="utf-8")
+    assert 'option.value = choice;' in settings
+    assert 'control.value = String(editableValue(field));' in settings
+    assert 'typeof field.value === "number" ? (el.value.trim() === "" ? null : Number(el.value))' in settings
+    assert 'wrapper.append(hint);' in settings
+    assert '.settings-input-unit{' in stylesheet
+    assert 'from "./api.js?v=9c3-20260920"' in settings
+    assert 'nav2' not in settings

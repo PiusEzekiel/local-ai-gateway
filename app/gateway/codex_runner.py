@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+from contextlib import nullcontext
 from typing import Any, Callable
 from uuid import UUID
 from jsonschema import Draft202012Validator
@@ -15,6 +16,7 @@ from jsonschema.exceptions import ValidationError
 from .contracts import GatewayError, ImageReference, ImageRunResult, RunResult
 from .codex_diagnostics import codex_failure_diagnostic, codex_event_summary, classify_codex_failure
 from .reference_images import download_reference_image
+from .reference_cache import ReferenceCache
 
 LOG = logging.getLogger("uvicorn.error")
 
@@ -60,11 +62,13 @@ def used_web_search(stdout: bytes) -> bool:
 
 class CodexRunner:
 
-    def __init__(self, command: list[str], model: str | None = None):
+    def __init__(self, command: list[str], model: str | None = None,
+                 reference_cache: ReferenceCache | None = None):
 
         self.command = command
 
         self.model = model
+        self.reference_cache = reference_cache
 
 
 
@@ -355,6 +359,47 @@ class CodexRunner:
             )
 
 
+    def _download_reference(self, reference: ImageReference, workdir: Path, index: int,
+                            request_id: str | None = None) -> Path:
+        if self.reference_cache is None:
+            return download_reference_image(reference, workdir, index, request_id)
+        cached = self.reference_cache.resolve(reference)
+        if cached is not None:
+            return cached
+        try:
+            downloaded = download_reference_image(reference, workdir, index, request_id)
+        except Exception:
+            # A DNS/security failure raised by resolve() never reaches here.
+            # A remote retrieval failure is not a successful download.
+            self.reference_cache.record_remote_download_failure()
+            raise
+        self.reference_cache.record_remote_download(downloaded.stat().st_size)
+        mime_type = {
+            ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp",
+        }.get(downloaded.suffix.lower(), "application/octet-stream")
+        try:
+            return self.reference_cache.store(reference, downloaded, mime_type=mime_type)
+        except GatewayError as exc:
+            # The remote bytes already passed the downloader's security and
+            # image checks.  Cache persistence failures may safely fall back
+            # to that validated request-local file; cache validation failures
+            # remain hard failures.
+            if exc.kind == "invalid_reference_image":
+                raise
+            self.reference_cache.record_cache_write_failure()
+            LOG.warning(
+                "reference_cache_persist_failed request_id=%s error=%s fallback=uncached",
+                request_id or "unknown", exc.kind,
+            )
+            return downloaded
+        except Exception as exc:
+            self.reference_cache.record_cache_write_failure()
+            LOG.warning(
+                "reference_cache_persist_failed request_id=%s exception=%s fallback=uncached",
+                request_id or "unknown", type(exc).__name__,
+            )
+            return downloaded
+
     async def run_image(
         self,
         *,
@@ -392,7 +437,8 @@ class CodexRunner:
             timeout_seconds,
         )
 
-        with tempfile.TemporaryDirectory(prefix="codex-image-gateway-") as workdir:
+        lease_scope = self.reference_cache.lease_scope() if self.reference_cache else nullcontext()
+        with lease_scope, tempfile.TemporaryDirectory(prefix="codex-image-gateway-") as workdir:
             workdir_path = Path(workdir)
             reference_paths: list[Path] = []
 
@@ -410,8 +456,9 @@ class CodexRunner:
                         f"Downloading reference image {index + 1}/{len(reference_images)}"
                     )
 
+                downloader = reference_downloader or self._download_reference
                 reference_path = await asyncio.to_thread(
-                    reference_downloader or download_reference_image,
+                    downloader,
                     reference,
                     workdir_path,
                     index,
@@ -731,11 +778,10 @@ class CodexRunner:
                 mime_type,
             )
 
-            return ImageRunResult(
+            result = ImageRunResult(
                 path=image_path,
                 mime_type=mime_type,
                 usage=extract_usage(stdout),
                 thread_id=thread_id,
             )
-
-
+            return result

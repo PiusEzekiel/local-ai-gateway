@@ -20,7 +20,14 @@ import tempfile
 from threading import RLock
 from typing import Any, Mapping
 
-from .config import Settings, QUOTA_POLL_MIN_SECONDS, QUOTA_POLL_MAX_SECONDS
+from .config import (
+    Settings, QUOTA_POLL_MIN_SECONDS, QUOTA_POLL_MAX_SECONDS,
+    REFERENCE_CACHE_DEFAULT_TTL_SECONDS, REFERENCE_CACHE_DEFAULT_MAX_MB,
+    REFERENCE_CACHE_MIN_TTL_SECONDS, REFERENCE_CACHE_MAX_TTL_SECONDS,
+    REFERENCE_CACHE_DEFAULT_RETENTION_DAYS, REFERENCE_CACHE_MIN_RETENTION_DAYS,
+    REFERENCE_CACHE_MAX_RETENTION_DAYS,
+    REFERENCE_CACHE_MIN_MB, REFERENCE_CACHE_MAX_MB,
+)
 
 LOG = logging.getLogger("uvicorn.error")
 
@@ -64,6 +71,10 @@ FIELD_SPECS: dict[str, FieldSpec] = {
     "quota_snapshot_retention_days": FieldSpec(int, 30, True, 1, 3650, "AI_GATEWAY_QUOTA_RETENTION_DAYS", label="Quota snapshot retention (days)", group="retention"),
     "max_artifact_storage_mb": FieldSpec(int, 10240, True, 1, 1000000, "AI_GATEWAY_MAX_ARTIFACT_MB", label="Artifact storage limit (MB)", group="retention"),
     "cleanup_interval_hours": FieldSpec(int, 24, True, 1, 168, "AI_GATEWAY_CLEANUP_INTERVAL_HOURS", label="Automatic cleanup interval (hours)", group="retention"),
+    "reference_cache_enabled": FieldSpec(bool, False, True, env="AI_GATEWAY_REFERENCE_CACHE", label="Reference image cache", group="storage"),
+    "reference_cache_ttl_seconds": FieldSpec(int, REFERENCE_CACHE_DEFAULT_TTL_SECONDS, True, REFERENCE_CACHE_MIN_TTL_SECONDS, REFERENCE_CACHE_MAX_TTL_SECONDS, "AI_GATEWAY_REFERENCE_CACHE_TTL_SECONDS", choices=("3600", "21600", "43200", "86400", "259200", "604800"), label="Reference cache freshness", group="storage"),
+    "reference_cache_retention_days": FieldSpec(int, REFERENCE_CACHE_DEFAULT_RETENTION_DAYS, True, REFERENCE_CACHE_MIN_RETENTION_DAYS, REFERENCE_CACHE_MAX_RETENTION_DAYS, "AI_GATEWAY_REFERENCE_CACHE_RETENTION_DAYS", choices=("1", "3", "7", "14", "30"), label="Unused reference retention", group="storage"),
+    "reference_cache_max_mb": FieldSpec(int, REFERENCE_CACHE_DEFAULT_MAX_MB, True, REFERENCE_CACHE_MIN_MB, REFERENCE_CACHE_MAX_MB, "AI_GATEWAY_REFERENCE_CACHE_MAX_MB", choices=("256", "512", "1024", "2048", "4096", "8192"), label="Reference cache storage limit", group="storage"),
 }
 
 
