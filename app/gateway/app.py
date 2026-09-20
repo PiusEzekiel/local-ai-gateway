@@ -26,7 +26,7 @@ from .artifact_store import ArtifactStore
 from .job_store import JobStore
 from .quota_monitor import QuotaMonitor
 from .settings_manager import SettingsManager, apply_saved_settings
-from .config import DATA_DIR, DEFAULT_MODEL, MODELS, SETTINGS_PATH, Settings, find_codex_executable
+from .config import DATA_DIR, DEFAULT_MODEL, MODELS, SETTINGS_PATH, Settings, find_codex_executable, validate_quota_poll_seconds
 from .contracts import (
     ChatCompletionRequest, ChatMessage, ChatResponseFormat, GatewayError,
     GenerateRequest, ImageReference, ImageRequest, ImageRunResult,
@@ -77,6 +77,10 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
     if use_saved_settings:
         settings = apply_saved_settings(Settings.from_env(), settings_manager.load(), MODELS)
     assert settings is not None
+    # Environment values and injected Settings must obey the same bounds as
+    # dashboard PATCH and the real monitor constructor. Fail clearly before
+    # creating stores, workers, or an unavailable quota monitor.
+    validate_quota_poll_seconds(settings.quota_poll_seconds)
     runner = runner or CodexRunner([settings.codex_exe], model=settings.model)
 
     if settings.max_concurrency < 1 or settings.max_queue < 0:

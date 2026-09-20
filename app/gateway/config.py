@@ -8,6 +8,21 @@ import shutil
 
 MODELS = ("gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol")
 DEFAULT_MODEL = "gpt-5.6-luna"
+
+# These boundaries match QuotaMonitor's constructor contract (30–60s).
+# Settings API, environment startup and programmatic create_app() must agree.
+QUOTA_POLL_MIN_SECONDS = 30
+QUOTA_POLL_MAX_SECONDS = 60
+
+
+def validate_quota_poll_seconds(value: int) -> int:
+    """Reject unsupported values before initializing the quota monitor."""
+    if type(value) is not int or not QUOTA_POLL_MIN_SECONDS <= value <= QUOTA_POLL_MAX_SECONDS:
+        raise ValueError(
+            f"quota_poll_seconds must be an integer from "
+            f"{QUOTA_POLL_MIN_SECONDS} to {QUOTA_POLL_MAX_SECONDS}."
+        )
+    return value
 SETTINGS_PATH = Path(__file__).parents[1] / ".gateway-settings.json"
 DATA_DIR = Path(__file__).parents[1] / ".gateway-data"
 
@@ -109,7 +124,7 @@ class Settings:
 
             quota_monitor_enabled=os.getenv("AI_GATEWAY_QUOTA_MONITOR", "1").lower() not in {"0", "false", "no"},
 
-            quota_poll_seconds=int(os.getenv("AI_GATEWAY_QUOTA_POLL_SECONDS", "45")),
+            quota_poll_seconds=validate_quota_poll_seconds(int(os.getenv("AI_GATEWAY_QUOTA_POLL_SECONDS", "45"))),
 
             quota_warning_remaining_percent=int(os.getenv("AI_GATEWAY_QUOTA_WARNING_PERCENT", "20")),
 

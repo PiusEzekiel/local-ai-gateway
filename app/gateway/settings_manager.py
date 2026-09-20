@@ -20,7 +20,7 @@ import tempfile
 from threading import RLock
 from typing import Any, Mapping
 
-from .config import Settings
+from .config import Settings, QUOTA_POLL_MIN_SECONDS, QUOTA_POLL_MAX_SECONDS
 
 LOG = logging.getLogger("uvicorn.error")
 
@@ -51,7 +51,7 @@ FIELD_SPECS: dict[str, FieldSpec] = {
     "max_timeout_seconds": FieldSpec(int, 300, True, 5, 300, "AI_GATEWAY_MAX_TIMEOUT_SECONDS", label="Maximum text / research timeout", group="timeouts"),
     "image_timeout_seconds": FieldSpec(int, 600, True, 30, 900, "AI_GATEWAY_IMAGE_TIMEOUT_SECONDS", label="Default image timeout", group="timeouts"),
     "quota_monitor_enabled": FieldSpec(bool, True, True, env="AI_GATEWAY_QUOTA_MONITOR", label="Quota monitor", group="quota"),
-    "quota_poll_seconds": FieldSpec(int, 45, True, 15, 3600, "AI_GATEWAY_QUOTA_POLL_SECONDS", label="Quota refresh interval", group="quota"),
+    "quota_poll_seconds": FieldSpec(int, 45, True, QUOTA_POLL_MIN_SECONDS, QUOTA_POLL_MAX_SECONDS, "AI_GATEWAY_QUOTA_POLL_SECONDS", label="Quota refresh interval", group="quota"),
     "quota_warning_remaining_percent": FieldSpec(int, 20, True, 1, 100, "AI_GATEWAY_QUOTA_WARNING_PERCENT", label="Quota warning threshold", group="quota"),
     "quota_critical_remaining_percent": FieldSpec(int, 10, True, 0, 99, "AI_GATEWAY_QUOTA_CRITICAL_PERCENT", label="Quota critical threshold", group="quota"),
     # Opt-in for plaintext content. Never store prompt/output bodies by default.

@@ -329,6 +329,17 @@ class JobStore:
                 )),
             )
 
+    def rollback_artifact_record(self, artifact_id: str) -> None:
+        """Undo a partially completed artifact registration without deleting jobs.
+
+        The caller removes files only after this transaction succeeds. The
+        reference list and job statistics survive a failed image upload.
+        """
+        with self._lock, self._db:
+            self._db.execute("UPDATE jobs SET artifact_id=NULL WHERE artifact_id=?", (artifact_id,))
+            self._db.execute("UPDATE job_references SET artifact_id=NULL WHERE artifact_id=?", (artifact_id,))
+            self._db.execute("DELETE FROM artifacts WHERE id=?", (artifact_id,))
+
     def save_quota_snapshot(self, snapshot: dict[str, Any]) -> None:
         observed_at = snapshot.get("observed_at") or datetime.now(timezone.utc).isoformat()
         status = str(snapshot.get("status") or "unavailable")

@@ -23,6 +23,25 @@ LOG = logging.getLogger("uvicorn.error")
 def create_image_router(ctx: GenerationContext) -> APIRouter:
     router = APIRouter()
 
+    def undo_unregistered_artifact(artifact: dict[str, Any]) -> None:
+        """Best-effort compensation when SQLite registration/linking fails.
+
+        Never delete files if SQLite rollback fails: preserving an orphan with
+        a DB row is safer than knowingly creating a broken gallery URL.
+        """
+        if not ctx.artifact_store:
+            return
+        if ctx.job_store:
+            try:
+                ctx.job_store.rollback_artifact_record(artifact["id"])
+            except Exception:
+                LOG.exception("artifact_db_rollback_failed artifact_id=%s", artifact["id"])
+                return
+        try:
+            ctx.artifact_store.delete_for_retention(artifact)
+        except Exception:
+            LOG.exception("artifact_file_rollback_failed artifact_id=%s", artifact["id"])
+
     @router.post("/v1/images/generations", dependencies=[Depends(ctx.require_token)])
     async def image_generation(request: ImageRequest) -> FileResponse:
 
@@ -130,6 +149,7 @@ def create_image_router(ctx: GenerationContext) -> APIRouter:
                 ctx.history.reference_ready(job, index + 1)
                 if not ctx.artifact_store or not ctx.job_store:
                     return
+                artifact = None
                 try:
                     reference_mime = {
                         ".png": "image/png", ".jpg": "image/jpeg",
@@ -142,6 +162,8 @@ def create_image_router(ctx: GenerationContext) -> APIRouter:
                     ctx.job_store.save_artifact(artifact)
                     ctx.job_store.set_reference_artifact(job["id"], index + 1, artifact["id"])
                 except Exception:
+                    if artifact is not None:
+                        undo_unregistered_artifact(artifact)
                     LOG.exception(
                         "reference_artifact_persist_failed job_id=%s index=%s reference_id=%s",
                         job["id"], index + 1, reference.id or "none",
@@ -166,21 +188,36 @@ def create_image_router(ctx: GenerationContext) -> APIRouter:
             image_path = image_result.path
             mime_type = image_result.mime_type
             artifact_started = time.monotonic()
-            if ctx.artifact_store:
-                try:
-                    artifact = ctx.artifact_store.create(
-                        job_id=job["id"], source=image_path, mime_type=mime_type,
-                    )
-                    if ctx.job_store:
-                        ctx.job_store.save_artifact(artifact)
-                    image_path = Path(artifact["storage_path"])
-                    ctx.history.update(
-                        job, status="running", stage="Artifact ready",
-                        artifact_id=artifact["id"], artifact_ready_at=artifact["created_at"],
-                        artifact_processing_ms=round((time.monotonic() - artifact_started) * 1000),
-                    )
-                except Exception:
-                    LOG.exception("artifact_persist_failed job_id=%s", job["id"])
+            # The original image MUST be durable. Reference thumbnails remain
+            # optional, but never respond 200 from Codex's source path when the
+            # gallery store or the SQLite artifact registration is unavailable.
+            if not ctx.artifact_store or not ctx.job_store:
+                raise GatewayError(
+                    "artifact_persist_failed",
+                    "Image was generated but durable storage is unavailable. Retry later.",
+                    503,
+                )
+            artifact = None
+            try:
+                artifact = ctx.artifact_store.create(
+                    job_id=job["id"], source=image_path, mime_type=mime_type,
+                )
+                ctx.job_store.save_artifact(artifact)
+            except Exception as exc:
+                LOG.exception("artifact_persist_failed job_id=%s", job["id"])
+                if artifact is not None:
+                    undo_unregistered_artifact(artifact)
+                raise GatewayError(
+                    "artifact_persist_failed",
+                    "Image was generated but could not be saved. Retry later.",
+                    503,
+                ) from exc
+            image_path = Path(artifact["storage_path"])
+            ctx.history.update(
+                job, status="running", stage="Artifact ready",
+                artifact_id=artifact["id"], artifact_ready_at=artifact["created_at"],
+                artifact_processing_ms=round((time.monotonic() - artifact_started) * 1000),
+            )
 
             ctx.history.update(
                 job,

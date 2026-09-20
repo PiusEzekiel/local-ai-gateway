@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import re
 from threading import RLock
@@ -33,67 +34,95 @@ class ArtifactStore:
 
     def _create_locked(self, *, job_id: str, source: Path, mime_type: str,
                        artifact_type: str, thumbnail_quality: int) -> dict[str, Any]:
+        """Publish complete files only; a failed import cannot leave a public partial image.
+
+        The staging files have deliberately NON-managed names, so retention
+        never mistakes an in-flight copy for a completed gallery artifact.
+        Each rename is atomic on this filesystem; SQLite registration remains
+        a separate step managed by the caller, with compensating rollback.
+        """
         source = Path(source)
         suffix = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}.get(mime_type, ".bin")
         artifact_id = "art_" + uuid4().hex
-        destination = (self.root / f"{artifact_id}{suffix}").resolve()
-        if destination.parent != self.root:
-            raise ValueError("Invalid artifact destination")
-        # Copy file data, not the source mtime: downloaded/reference images may
-        # carry a timestamp older than the 24-hour orphan-cleanup threshold.
-        # A newly copied artifact must always look new until its DB registration
-        # completes, even when the source file is years old.
-        shutil.copyfile(source, destination)
+        destination = self.root / f"{artifact_id}{suffix}"
+        thumbnail = self.root / f"{artifact_id}_thumb.webp"
+        # Staging must be in the same directory for os.replace to be atomic.
+        staging = self.root / f".{artifact_id}{suffix}.{uuid4().hex}.staging"
+        thumb_staging = self.root / f".{artifact_id}_thumb.webp.{uuid4().hex}.staging"
         width = height = None
         thumbnail_path: str | None = None
+        published = False
         try:
-            with Image.open(destination) as image:
-                width, height = image.size
-                image.thumbnail((560, 420), Image.Resampling.LANCZOS)
-                thumbnail = (self.root / f"{artifact_id}_thumb.webp").resolve()
-                if thumbnail.parent != self.root:
-                    raise ValueError("Invalid thumbnail destination")
-                if image.mode not in {"RGB", "RGBA"}:
-                    image = image.convert("RGBA" if "transparency" in image.info else "RGB")
-                image.save(thumbnail, format="WEBP", quality=min(max(thumbnail_quality, 30), 95), method=4)
-                thumbnail_path = str(thumbnail)
-        except (OSError, UnidentifiedImageError, Image.DecompressionBombError):
-            # The original artifact remains usable if optional thumbnailing fails.
-            pass
-        return {
-            "id": artifact_id,
-            "job_id": job_id,
-            "artifact_type": artifact_type,
-            "mime_type": mime_type,
-            "width": width,
-            "height": height,
-            "size_bytes": destination.stat().st_size,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "storage_path": str(destination),
-            "thumbnail_path": thumbnail_path,
-        }
+            # copyfile (not copy2) gives each newly created artifact a fresh
+            # timestamp, including when the input came from a very old archive.
+            shutil.copyfile(source, staging)
+            # Verify the entire source before exposing the final managed path.
+            # Unknown MIME types preserve the pre-existing .bin fallback.
+            if mime_type in {"image/png", "image/jpeg", "image/webp"}:
+                with Image.open(staging) as image:
+                    image.verify()
+                with Image.open(staging) as image:
+                    width, height = image.size
+                    try:
+                        image.thumbnail((560, 420), Image.Resampling.LANCZOS)
+                        if image.mode not in {"RGB", "RGBA"}:
+                            image = image.convert("RGBA" if "transparency" in image.info else "RGB")
+                        image.save(thumb_staging, format="WEBP",
+                                   quality=min(max(thumbnail_quality, 30), 95), method=4)
+                    except (OSError, UnidentifiedImageError, Image.DecompressionBombError):
+                        # Thumbnailing is optional; verified original is durable.
+                        thumb_staging.unlink(missing_ok=True)
+
+            os.replace(staging, destination)
+            published = True
+            if thumb_staging.is_file():
+                try:
+                    os.replace(thumb_staging, thumbnail)
+                    thumbnail_path = str(thumbnail)
+                except OSError:
+                    # A thumbnail publish error cannot invalidate a ready original.
+                    # Clean up even if a mocked/unstable replace committed first.
+                    thumbnail.unlink(missing_ok=True)
+                    thumb_staging.unlink(missing_ok=True)
+            return {
+                "id": artifact_id,
+                "job_id": job_id,
+                "artifact_type": artifact_type,
+                "mime_type": mime_type,
+                "width": width,
+                "height": height,
+                "size_bytes": destination.stat().st_size,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "storage_path": str(destination),
+                "thumbnail_path": thumbnail_path,
+            }
+        except BaseException:
+            # If publishing or stat fails, do not expose a half-registered file.
+            # BaseException includes cancellation/interrupt; never swallow it.
+            if published:
+                destination.unlink(missing_ok=True)
+                thumbnail.unlink(missing_ok=True)
+            raise
+        finally:
+            staging.unlink(missing_ok=True)
+            thumb_staging.unlink(missing_ok=True)
 
     def resolve(self, storage_path: str) -> Path | None:
-        candidate = Path(storage_path).resolve()
-        if candidate.parent != self.root or not candidate.is_file():
-            return None
-        return candidate
+        """Serving and regular deletion obey the same opaque-path rules as retention."""
+        candidate = self._managed_path(storage_path)
+        return candidate if candidate and candidate.is_file() else None
 
     def delete(self, artifact: dict[str, Any]) -> bool:
+        """Remove both managed files, refusing unsafe DB paths or symlinks."""
         target = self.resolve(str(artifact.get("storage_path", "")))
         if target is None:
             return False
-        target.unlink()
-        thumbnail = artifact.get("thumbnail_path")
-        if thumbnail:
-            thumb = self.resolve(str(thumbnail))
-            if thumb:
-                thumb.unlink()
+        self.delete_for_retention(artifact)
         return True
 
     # ----------------------------------------------------------------------
-    # Retention-only filesystem functions. Legacy create/resolve/delete stay
-    # untouched. Symlinks/paths outside the opaque store are never followed.
+    # Shared filesystem path rules. Serving, deletion and retention must all
+    # reject symlinks and files outside this opaque, managed namespace.
     # ----------------------------------------------------------------------
     def _managed_path(self, value: str | None) -> Path | None:
         if not isinstance(value, str) or not value:
