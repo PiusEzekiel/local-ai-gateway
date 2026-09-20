@@ -4,10 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Local AI Gateway</title>
-  <link rel="stylesheet" href="/dashboard/assets/dashboard.css?v=8c-20260920">
-  <link rel="stylesheet" href="/dashboard/assets/diagnostics.css?v=8c-20260920">
-  <link rel="stylesheet" href="/dashboard/assets/settings.css?v=8c-20260920">
-  <link rel="stylesheet" href="/dashboard/assets/sync.css?v=8c-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/dashboard.css?v=9b21-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/diagnostics.css?v=9b21-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/settings.css?v=9b21-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/sync.css?v=9b21-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/gallery-polish.css?v=9b21-20260920">
 </head>
 <body>
   <div class="auth-screen" id="authScreen">
@@ -202,11 +203,15 @@
       </main>
     </div>
   </div>
-  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-labelledby="lightboxTitle" hidden>
-    <div class="lightbox-bar"><div><p class="kicker">Image preview</p><h2 id="lightboxTitle">Generated image</h2></div><div class="lightbox-actions"><button id="zoomOut" type="button" aria-label="Zoom out">−</button><button id="zoomFit" type="button">Fit</button><button id="zoomActual" type="button">100%</button><button id="zoomIn" type="button" aria-label="Zoom in">+</button><button id="closeLightbox" type="button" aria-label="Close image preview">×</button></div></div>
-    <div class="lightbox-stage" id="lightboxStage"><img id="lightboxImage" alt=""></div>
-    <button class="lightbox-nav previous" id="previousImage" aria-label="Previous image">‹</button><button class="lightbox-nav next" id="nextImage" aria-label="Next image">›</button>
+  <!-- A bounded viewer over the workspace ONLY: sidebar and health header remain usable. -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="false" aria-labelledby="lightboxTitle" hidden>
+    <div class="lightbox-panel">
+      <div class="lightbox-bar"><div class="lightbox-heading"><p class="kicker">Image preview</p><h2 id="lightboxTitle">Generated image</h2></div><div class="lightbox-actions"><button id="lightboxOutput" type="button" hidden>Show generated</button><button id="zoomOut" type="button" aria-label="Zoom out">−</button><button id="zoomFit" type="button">Fit</button><button id="zoomActual" type="button">100%</button><button id="zoomIn" type="button" aria-label="Zoom in">+</button><button id="closeLightbox" type="button" aria-label="Close image preview">×</button></div></div>
+      <div class="lightbox-stage" id="lightboxStage"><img id="lightboxImage" alt="" hidden><div id="lightboxStatus" class="lightbox-status" role="status">Loading image…</div></div>
+      <button class="lightbox-nav previous" id="previousImage" aria-label="Previous image">‹</button><button class="lightbox-nav next" id="nextImage" aria-label="Next image">›</button>
+      <div id="lightboxReferences" class="lightbox-references" aria-label="Reference images for this generation" hidden></div>
+    </div>
   </div>
-  <script type="module" src="/dashboard/assets/dashboard.js?v=8c-20260920"></script>
+  <script type="module" src="/dashboard/assets/dashboard.js?v=9b21-20260920"></script>
 </body>
 </html>

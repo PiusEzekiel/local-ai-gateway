@@ -1,12 +1,12 @@
-import {getGallery, getJobs, getPerformance, getSummary, getUsage, hasToken, setToken} from "./api.js?v=8c-20260920";
-import {state, update} from "./state.js?v=8c-20260920";
-import {compact, duration, renderFeed, selectJob} from "./jobs.js?v=8c-20260920";
-import {initializeLightbox, renderGallery} from "./gallery.js?v=8c-20260920";
-import {clearAnalyticsError, renderAnalyticsError, renderPerformance, renderUsage} from "./analytics.js?v=8c-20260920";
-import {initializeDiagnostics, loadDiagnostics, inspectDiagnosticJob} from "./diagnostics.js?v=8c-20260920";
-import {initializeSettings, loadSettings, settingsHasUnsavedChanges, discardSettingsChanges, refreshSettingsView} from "./settings.js?v=8c-20260920";
-import {createLiveClient} from "./live.js?v=8c-20260920";
-import {createSyncStatus} from "./sync_status.js?v=8c-20260920";
+import {getGallery, getJobs, getPerformance, getSummary, getUsage, hasToken, setToken} from "./api.js?v=9b21-20260920";
+import {state, update} from "./state.js?v=9b21-20260920";
+import {compact, duration, renderFeed, selectJob} from "./jobs.js?v=9b21-20260920";
+import {closeLightbox, initializeLightbox, renderGallery} from "./gallery.js?v=9b21-20260920";
+import {clearAnalyticsError, renderAnalyticsError, renderPerformance, renderUsage} from "./analytics.js?v=9b21-20260920";
+import {initializeDiagnostics, loadDiagnostics, inspectDiagnosticJob} from "./diagnostics.js?v=9b21-20260920";
+import {initializeSettings, loadSettings, settingsHasUnsavedChanges, discardSettingsChanges, refreshSettingsView} from "./settings.js?v=9b21-20260920";
+import {createLiveClient} from "./live.js?v=9b21-20260920";
+import {createSyncStatus} from "./sync_status.js?v=9b21-20260920";
 
 const $ = id => document.getElementById(id);
 // The transport badge is inspectable, but it NEVER replaces gateway health.
@@ -229,6 +229,7 @@ function go(page) {
     if (!window.confirm("Discard your unsaved settings changes?")) return;
     discardSettingsChanges();
   }
+  closeLightbox(); // keep sidebar navigation usable while a Gallery image is open
   update({page});
   document.querySelectorAll(".page").forEach(node => node.classList.toggle("active", node.id === `page-${page}`));
   document.querySelectorAll(".nav-item").forEach(node => {

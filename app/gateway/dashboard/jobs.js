@@ -1,5 +1,5 @@
-import {getJob, requestBlob} from "./api.js?v=8c-20260920";
-import {state, update} from "./state.js?v=8c-20260920";
+import {getJob, requestBlob} from "./api.js?v=9b21-20260920";
+import {state, update} from "./state.js?v=9b21-20260920";
 
 const el = (tag, className, text) => {
   const node = document.createElement(tag);
@@ -9,19 +9,60 @@ const el = (tag, className, text) => {
 };
 
 let inspectorObjectUrls = [];
+let inspectorGeneration = 0;
 
-async function protectedImage(path, className, alt) {
-  const image = el("img", className);
-  image.alt = alt;
+// A job switch invalidates outstanding protected-image fetches, which must not
+// append images or create object URLs in the new job's inspector.
+function clearInspectorImages() {
+  ++inspectorGeneration;
+  inspectorObjectUrls.forEach(url => URL.revokeObjectURL(url));
+  inspectorObjectUrls = [];
+}
+
+
+async function protectedImage(path, image, generation, fallback = "") {
   try {
-    const blob = await requestBlob(path);
+    // Thumbnails are optional artifacts. If missing, try the original before
+    // declaring the entire archived reference unavailable.
+    const blob = await requestBlob(path).catch(error => {
+      if (!fallback || fallback === path) throw error;
+      return requestBlob(fallback);
+    });
+    if (generation !== inspectorGeneration || !image.isConnected) return;
     const objectUrl = URL.createObjectURL(blob);
     inspectorObjectUrls.push(objectUrl);
     image.src = objectUrl;
   } catch {
-    image.alt = `${alt} unavailable`;
+    if (generation !== inspectorGeneration || !image.isConnected) return;
+    image.replaceWith(el("span", "reference-unavailable", "Preview unavailable"));
   }
-  return image;
+}
+
+function referenceButton(reference, requestId, generation) {
+  const ordinal = Number(reference.ordinal) || 1;
+  const title = `Reference ${ordinal}${reference.reference_id ? ` · ${reference.reference_id}` : ""}`;
+  const button = el("button", "job-reference-card");
+  button.type = "button";
+  button.title = `View full ${title}`;
+  button.setAttribute("aria-label", `View full ${title} for ${requestId}`);
+  button.append(el("span", "job-reference-image"), el("span", "job-reference-label", `Reference ${ordinal}`));
+  const frame = button.firstElementChild;
+  const image = el("img", "reference-thumb");
+  image.alt = title;
+  frame.append(image);
+  if (!reference.url) {
+    button.disabled = true;
+    image.replaceWith(el("span", "reference-unavailable", "Not retained"));
+    button.title = `Reference ${ordinal} was not retained or has expired`;
+  } else {
+    // Serve the full-size archived reference when available; thumbnail is only
+    // used for a lightweight preview. Both URLs are authenticated same-origin.
+    protectedImage(reference.thumbnail_url || reference.url, image, generation, reference.url);
+    button.addEventListener("click", () => document.dispatchEvent(new CustomEvent(
+      "job:preview-reference", {detail: {url: reference.url, title, requestId}}
+    )));
+  }
+  return button;
 }
 
 export const compact = value => {
@@ -77,8 +118,8 @@ function section(title) {
 
 function renderInspector(job) {
   const inspector = document.getElementById("jobInspector");
-  inspectorObjectUrls.forEach(url => URL.revokeObjectURL(url));
-  inspectorObjectUrls = [];
+  clearInspectorImages();
+  const generation = inspectorGeneration;
   inspector.replaceChildren();
   const head = el("div", "inspector-head");
   head.append(el("p", "kicker", `${job.task} · ${job.status}`), el("h2", "", job.request_id), el("p", "", job.model));
@@ -94,19 +135,38 @@ function renderInspector(job) {
     inspector.append(errorSection);
   }
 
-  if (job.artifact || job.references?.some(reference => reference.thumbnail_url)) {
+  const references = job.references || [];
+  if (job.artifact || references.length) {
     const mediaSection = section("Images");
     if (job.artifact) {
-      const imageHost = el("div");
+      // The generated output is an interactive preview, just like its archived
+      // references. Do not reuse the blob URL shown in the inspector: the viewer
+      // must fetch the full artifact through the authenticated request client.
+      const imageHost = el("button", "job-generated-image job-generated-button");
+      imageHost.type = "button";
+      imageHost.title = "View full generated image";
+      imageHost.setAttribute("aria-label", `View full generated image for ${job.request_id}`);
+      const generated = el("img", "inspector-image");
+      generated.alt = `Generated image for ${job.request_id}`;
+      imageHost.append(generated);
       mediaSection.append(imageHost);
-      protectedImage(job.artifact.url, "inspector-image", `Generated image for ${job.request_id}`).then(image => imageHost.append(image));
+      const outputUrl = job.artifact.url;
+      if (typeof outputUrl === "string" && outputUrl.startsWith("/dashboard/api/artifacts/")) {
+        protectedImage(outputUrl, generated, generation);
+        imageHost.addEventListener("click", () => document.dispatchEvent(new CustomEvent(
+          "job:preview-generated", {detail: {
+            url: outputUrl, requestId: job.request_id, references,
+          }}
+        )));
+      } else {
+        imageHost.disabled = true;
+        generated.replaceWith(el("span", "reference-unavailable", "Generated image unavailable"));
+      }
     }
-    const references = job.references?.filter(reference => reference.thumbnail_url) || [];
     if (references.length) {
-      const strip = el("div", "reference-strip");
-      references.forEach(reference => {
-        protectedImage(reference.thumbnail_url, "reference-thumb", reference.reference_id || `Reference ${reference.ordinal}`).then(image => strip.append(image));
-      });
+      mediaSection.append(el("h4", "reference-heading", `Reference images · ${references.length}`));
+      const strip = el("div", "reference-strip job-reference-strip");
+      references.forEach(reference => strip.append(referenceButton(reference, job.request_id, generation)));
       mediaSection.append(strip);
     }
     inspector.append(mediaSection);
@@ -143,11 +203,12 @@ export async function selectJob(id) {
   update({selectedJobId: id});
   renderFeed(document.getElementById("allJobs"), state.allJobs, id);
   const inspector = document.getElementById("jobInspector");
+  clearInspectorImages();
   inspector.replaceChildren(el("div", "empty-state", "Loading job…"));
   try {
     const data = await getJob(id);
     if (state.selectedJobId === id) renderInspector(data.job);
   } catch (error) {
-    inspector.replaceChildren(el("div", "error-box", error.message));
+    if (state.selectedJobId === id) inspector.replaceChildren(el("div", "error-box", error.message));
   }
 }

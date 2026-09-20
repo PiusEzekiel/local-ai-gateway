@@ -1,0 +1,236 @@
+/* Module 9B.1 — Gallery and bounded image viewer.
+   Keep these scoped overrides after dashboard.css; do not restyle Jobs references
+   or the Gallery reference inspector (those belong to 9B.2). */
+
+.gallery-grid {
+  gap: 12px;
+  padding: 14px;
+  background: transparent;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 226px), 1fr));
+}
+.gallery-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--panel-2);
+  transition: border-color .15s ease, background .15s ease;
+}
+.gallery-card:hover {
+  border-color: #445064;
+  background: #1a202b;
+}
+.gallery-thumb {
+  width: 100%;
+  min-width: 0;
+  aspect-ratio: 4 / 3;
+  padding: 14px;
+  background: #0b0e13;
+  border-bottom: 1px solid var(--line-soft);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.gallery-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  object-fit: contain;
+  object-position: center;
+}
+.gallery-info {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  width: 100%;
+  padding: 14px 15px 16px;
+  line-height: 1.45;
+}
+.gallery-info strong,
+.gallery-info span {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gallery-info strong { font-size: 12px; }
+.gallery-info span { margin-top: 0; font-size: 10px; }
+
+/* Inset the viewer below the topbar and to the right of the sidebar.
+   The overlay covers the workspace only, not the application's navigation. */
+.lightbox {
+  inset: 65px 0 0 216px;
+  z-index: 9; /* topbar has z-index: 10 */
+  grid-template-rows: minmax(0, 1fr);
+  padding: clamp(12px, 2.2vw, 30px);
+  background: #070a0ed9;
+  place-items: center;
+}
+.lightbox-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  position: relative;
+  width: min(100%, 1160px);
+  height: min(100%, 820px);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #10141a;
+  border: 1px solid #343c4a;
+  border-radius: 13px;
+  box-shadow: 0 25px 70px #0009;
+}
+.lightbox-bar {
+  min-width: 0;
+  gap: 12px;
+  padding: 12px 17px;
+  border-bottom: 1px solid var(--line);
+}
+.lightbox-heading { min-width: 0; }
+.lightbox-heading h2 {
+  max-width: min(52vw, 640px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lightbox-actions { flex: 0 0 auto; }
+.lightbox-stage {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #090c11;
+}
+.lightbox-stage img {
+  display: block;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
+  object-position: center;
+}
+.lightbox-stage img[hidden] { display: none !important; }
+.lightbox-status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 13px;
+  pointer-events: none;
+}
+.lightbox-status[hidden] { display: none !important; }
+.lightbox-nav { z-index: 1; }
+.lightbox-nav.previous { left: 16px; }
+.lightbox-nav.next { right: 16px; }
+
+@media (max-width: 760px) {
+  .gallery-grid { gap: 8px; padding: 10px; }
+  .gallery-thumb { padding: 8px; }
+  .gallery-info { padding: 11px 10px 13px; }
+  .lightbox { inset: 122px 0 0 0; padding: 9px; }
+  .lightbox-panel { width: 100%; height: 100%; border-radius: 9px; }
+  .lightbox-bar { padding: 9px; }
+  .lightbox-heading h2 { max-width: 33vw; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gallery-card, .gallery-thumb img { transition: none; }
+}
+
+/* Module 9B.2 — complete reference thumbnails and image comparison.
+   Reference cards are separate from the generated-output Gallery grid. */
+.job-generated-image { min-width: 0; }
+.reference-heading {
+  margin: 18px 0 9px; font-size: 10px; font-weight: 800;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--quiet);
+}
+.job-reference-strip {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(94px, 1fr));
+  gap: 9px; padding: 0; overflow: visible;
+}
+.job-reference-card {
+  display: flex; flex-direction: column; gap: 7px; min-width: 0;
+  padding: 8px; background: #0c1016; border: 1px solid var(--line);
+  border-radius: 8px; cursor: pointer; text-align: left;
+}
+.job-reference-card:hover:not(:disabled), .lightbox-reference:hover:not(:disabled) {
+  border-color: #6c88b9;
+}
+.job-reference-card:disabled, .lightbox-reference:disabled { cursor: default; opacity: .58; }
+.job-reference-image {
+  display: grid; place-items: center; width: 100%; aspect-ratio: 1 / 1;
+  overflow: hidden; background: #090c11; border-radius: 5px;
+}
+.job-reference-image .reference-thumb {
+  display: block; width: 100%; height: 100%; min-width: 0; min-height: 0;
+  border: 0; border-radius: 0; object-fit: contain; object-position: center;
+}
+.job-reference-label { font-size: 10px; color: var(--muted); text-align: center; }
+.reference-unavailable {
+  display: grid; place-items: center; padding: 6px; color: var(--quiet);
+  font-size: 10px; line-height: 1.4; text-align: center;
+}
+.lightbox-panel:has(.lightbox-references:not([hidden])) {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.lightbox-references {
+  display: flex; gap: 10px; align-items: center; min-width: 0;
+  min-height: 100px; overflow-x: auto; padding: 10px 15px;
+  border-top: 1px solid var(--line); scrollbar-color: #444e5e #11141a;
+}
+.lightbox-references[hidden] { display: none !important; }
+.lightbox-reference-label, .lightbox-reference-note {
+  flex: 0 0 auto; color: var(--muted); font-size: 11px;
+}
+.lightbox-reference {
+  display: grid; gap: 3px; flex: 0 0 75px; padding: 5px;
+  border: 1px solid var(--line); background: #0a0d12; border-radius: 7px;
+  cursor: pointer; font-size: 9px; color: var(--muted); text-align: center;
+}
+.lightbox-reference.active { border-color: #7ca7ed; background: #182438; }
+.lightbox-reference-frame {
+  display: grid; place-items: center; aspect-ratio: 1 / 1;
+  min-width: 0; overflow: hidden; border-radius: 4px;
+}
+.lightbox-reference-frame img {
+  width: 100%; height: 100%; object-fit: contain; object-position: center;
+}
+.lightbox-actions #lightboxOutput {
+  padding: 0 9px; color: #acc9f4; font-size: 11px;
+}
+.lightbox-actions #lightboxOutput[hidden] { display: none !important; }
+.lightbox-actions #lightboxOutput:disabled { color: var(--quiet); cursor: default; }
+.lightbox-nav[hidden] { display: none !important; }
+@media (max-width: 760px) {
+  .job-reference-strip { grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); }
+  .lightbox-references { min-height: 83px; padding: 7px; }
+  .lightbox-reference { flex-basis: 65px; }
+  .lightbox-bar { flex-wrap: wrap; }
+  .lightbox-actions { width: 100%; justify-content: flex-end; }
+  .lightbox-actions #lightboxOutput { margin-right: auto; }
+}
+
+/* Module 9B.2.1 — generated output opens in the same bounded viewer as refs. */
+.job-generated-button {
+  display: block; width: 100%; min-width: 0; padding: 0;
+  border: 1px solid transparent; border-radius: 8px;
+  background: transparent; cursor: zoom-in; overflow: hidden;
+}
+.job-generated-button:hover:not(:disabled) { border-color: #6c88b9; }
+.job-generated-button:disabled { cursor: default; }
+.job-generated-button .inspector-image {
+  display: block; width: 100%; max-height: 260px;
+  object-fit: contain; object-position: center;
+}

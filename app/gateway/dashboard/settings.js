@@ -2,7 +2,7 @@
 import {
   getSettings, patchSettings, getPrivacyStorage, purgePrivacy,
   getStoragePreview, runStorageCleanup, getSystemInfo,
-} from "./api.js?v=8c-20260920";
+} from "./api.js?v=9b21-20260920";
 
 const $ = id => document.getElementById(id);
 const sections = [
