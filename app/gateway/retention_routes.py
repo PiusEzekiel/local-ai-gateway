@@ -9,6 +9,7 @@ from .config import Settings
 from .contracts import GatewayError
 from .retention import RetentionService
 from .artifact_health import inspect_artifact_health
+from .artifact_inventory import inspect_storage_inventory
 from .job_history import JobHistory
 from .live_events import LiveEventBus
 
@@ -25,6 +26,15 @@ def create_retention_router(*, require_token: Callable[..., None],
             raise GatewayError('unavailable', 'Artifact health is unavailable.', 503)
         return await asyncio.to_thread(
             inspect_artifact_health, retention.store, retention.artifacts,
+        )
+
+    @router.get('/dashboard/api/storage/inventory', dependencies=[Depends(require_token)])
+    async def storage_inventory() -> dict[str, Any]:
+        # A metadata-only scan; never reuse the retention cleanup plan here.
+        if retention is None:
+            raise GatewayError('unavailable', 'Storage inventory is unavailable.', 503)
+        return await asyncio.to_thread(
+            inspect_storage_inventory, retention.store, retention.artifacts,
         )
 
     @router.get('/dashboard/api/storage/preview', dependencies=[Depends(require_token)])

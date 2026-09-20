@@ -8,7 +8,7 @@ import re
 
 D = Path(__file__).resolve().parents[1] / 'gateway' / 'dashboard'
 G = D.parent
-VERSION = '9c1-20260920'
+VERSION = '9c2-20260920'
 
 
 def test_jobs_generated_image_is_an_accessible_button_not_a_passive_img():

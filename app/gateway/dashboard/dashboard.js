@@ -1,12 +1,12 @@
-import {getGallery, getJobs, getPerformance, getSummary, getUsage, hasToken, setToken, setUnauthorizedHandler} from "./api.js?v=9c1-20260920";
-import {state, update} from "./state.js?v=9c1-20260920";
-import {compact, duration, renderFeed, selectJob} from "./jobs.js?v=9c1-20260920";
-import {abortGalleryMedia, closeLightbox, initializeLightbox, renderGallery} from "./gallery.js?v=9c1-20260920";
-import {clearAnalyticsError, renderAnalyticsError, renderPerformance, renderUsage} from "./analytics.js?v=9c1-20260920";
-import {initializeDiagnostics, loadDiagnostics, inspectDiagnosticJob} from "./diagnostics.js?v=9c1-20260920";
-import {initializeSettings, loadSettings, settingsHasUnsavedChanges, discardSettingsChanges, refreshSettingsView} from "./settings.js?v=9c1-20260920";
-import {createLiveClient} from "./live.js?v=9c1-20260920";
-import {createSyncStatus} from "./sync_status.js?v=9c1-20260920";
+import {getGallery, getJobs, getPerformance, getSummary, getUsage, hasToken, setToken, setUnauthorizedHandler} from "./api.js?v=9c2-20260920";
+import {state, update} from "./state.js?v=9c2-20260920";
+import {compact, duration, renderFeed, selectJob} from "./jobs.js?v=9c2-20260920";
+import {abortGalleryMedia, closeLightbox, initializeLightbox, renderGallery} from "./gallery.js?v=9c2-20260920";
+import {clearAnalyticsError, renderAnalyticsError, renderPerformance, renderUsage} from "./analytics.js?v=9c2-20260920";
+import {initializeDiagnostics, loadDiagnostics, inspectDiagnosticJob} from "./diagnostics.js?v=9c2-20260920";
+import {initializeSettings, loadSettings, settingsHasUnsavedChanges, discardSettingsChanges, refreshSettingsView} from "./settings.js?v=9c2-20260920";
+import {createLiveClient} from "./live.js?v=9c2-20260920";
+import {createSyncStatus} from "./sync_status.js?v=9c2-20260920";
 
 const $ = id => document.getElementById(id);
 // Module 9B.5 — a display-only preference stored in this browser tab.

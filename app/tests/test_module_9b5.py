@@ -5,7 +5,7 @@ import re
 
 G = Path(__file__).resolve().parents[1] / 'gateway'
 D = G / 'dashboard'
-V = '9c1-20260920'
+V = '9c2-20260920'
 
 class Parsed(HTMLParser):
     def __init__(self):

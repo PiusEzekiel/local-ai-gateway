@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Local AI Gateway</title>
-  <link rel="stylesheet" href="/dashboard/assets/dashboard.css?v=9c1-20260920">
-  <link rel="stylesheet" href="/dashboard/assets/diagnostics.css?v=9c1-20260920">
-  <link rel="stylesheet" href="/dashboard/assets/settings.css?v=9c1-20260920">
-  <link rel="stylesheet" href="/dashboard/assets/sync.css?v=9c1-20260920">
-  <link rel="stylesheet" href="/dashboard/assets/gallery-polish.css?v=9c1-20260920">
-  <link rel="stylesheet" href="/dashboard/assets/session.css?v=9c1-20260920">
-  <link rel="stylesheet" href="/dashboard/assets/shell.css?v=9c1-20260920">
-  <link rel="stylesheet" href="/dashboard/assets/artifact-health.css?v=9c1-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/dashboard.css?v=9c2-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/diagnostics.css?v=9c2-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/settings.css?v=9c2-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/sync.css?v=9c2-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/gallery-polish.css?v=9c2-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/session.css?v=9c2-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/shell.css?v=9c2-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/artifact-health.css?v=9c2-20260920">
 </head>
 <body>
   <div class="auth-screen" id="authScreen">
@@ -212,6 +212,12 @@
                   <div class="artifact-health-grid"><div class="settings-mini"><span>Originals missing / unsafe</span><strong id="healthOriginals">—</strong><small>Registered image and reference files</small></div><div class="settings-mini"><span>Thumbnails missing</span><strong id="healthThumbnails">—</strong><small>Optional thumbnails are excluded if never created</small></div><div class="settings-mini"><span>Eligible orphan files</span><strong id="healthOrphans">—</strong><small>Unregistered managed files over 24 hours old</small></div></div>
                   <p id="healthNote" class="settings-muted" role="status" aria-live="polite">Inspect files to compare SQLite records with managed artifact storage. Nothing will be deleted.</p><div id="healthSamples" class="artifact-health-samples" aria-label="Sample artifact health findings"></div>
                 </div>
+                <div class="artifact-inventory" aria-labelledby="inventoryHeading">
+                  <div class="artifact-health-heading"><div><p class="kicker">9C.2 · Observational scan</p><h3 id="inventoryHeading">What is using artifact storage?</h3></div><button class="settings-button" type="button" id="settingsInventoryRefresh">Investigate files</button></div>
+                  <p class="settings-muted">Break down recent unregistered files by recognized images, thumbnails, staging files, and unknown names. Read-only; filenames and local paths stay on your PC.</p>
+                  <div class="artifact-health-grid"><div class="settings-mini"><span>Recent unregistered managed</span><strong id="inventoryRecent">—</strong><small>Under 24 hours; not cleanup candidates</small></div><div class="settings-mini"><span>Eligible unregistered managed</span><strong id="inventoryEligible">—</strong><small>Over 24 hours; still not proof of disposability</small></div><div class="settings-mini"><span>Scanned file bytes</span><strong id="inventoryBytes">—</strong><small>Managed directory; excludes Codex-owned images</small></div></div>
+                  <p id="inventoryNote" class="settings-muted" role="status" aria-live="polite">Select Investigate files for a detailed, read-only breakdown.</p><div id="inventoryRows" class="artifact-inventory-rows"></div><div id="inventorySamples" class="artifact-inventory-samples" aria-label="Anonymized file examples"></div>
+                </div>
                 <div class="settings-storage-grid"><div class="settings-mini"><span>Artifact storage</span><strong id="storageUsed">—</strong><small id="storageLimit">Configured limit —</small></div><div class="settings-mini"><span>Registered data</span><strong id="storageRegistered">—</strong><small>Artifact files and thumbnails</small></div><div class="settings-mini"><span>Preview recovery</span><strong id="storageRecoverable">—</strong><small>Estimated artifact bytes</small></div></div>
                 <div class="settings-privacy-grid"><div class="settings-mini"><span>Expired jobs</span><strong id="storageJobs">—</strong></div><div class="settings-mini"><span>Eligible artifacts</span><strong id="storageArtifacts">—</strong></div><div class="settings-mini"><span>Old quota snapshots</span><strong id="storageQuota">—</strong></div></div>
                 <label class="settings-check"><input type="checkbox" id="settingsIncludeOrphans"> Include unregistered artifact files older than 24 hours</label>
@@ -241,6 +247,6 @@
       <div id="lightboxReferences" class="lightbox-references" aria-label="Reference images for this generation" hidden></div>
     </div>
   </div>
-  <script type="module" src="/dashboard/assets/dashboard.js?v=9c1-20260920"></script>
+  <script type="module" src="/dashboard/assets/dashboard.js?v=9c2-20260920"></script>
 </body>
 </html>

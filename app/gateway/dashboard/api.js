@@ -108,6 +108,7 @@ export const purgePrivacy = scope => request("/dashboard/api/privacy/purge", {
   body: JSON.stringify({confirmation: "DELETE_RETAINED_DATA", scope}),
 });
 export const getStorageHealth = () => request("/dashboard/api/storage/health");
+export const getStorageInventory = () => request("/dashboard/api/storage/inventory");
 export const getStoragePreview = (includeOrphans = false) => request(
   `/dashboard/api/storage/preview?include_orphans=${includeOrphans ? "true" : "false"}`
 );

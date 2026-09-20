@@ -1,8 +1,8 @@
 /** Module 7D: Settings and System UI. Never build user-controlled HTML. */
 import {
   getSettings, patchSettings, getPrivacyStorage, purgePrivacy,
-  getStoragePreview, getStorageHealth, runStorageCleanup, getSystemInfo,
-} from "./api.js?v=9c1-20260920";
+  getStoragePreview, getStorageHealth, getStorageInventory, runStorageCleanup, getSystemInfo,
+} from "./api.js?v=9c2-20260920";
 
 const $ = id => document.getElementById(id);
 const sections = [
@@ -277,6 +277,55 @@ async function refreshArtifactHealth() {
   }
 }
 
+const inventoryAgeLabels = {
+  under_5_minutes: "Under 5 min",
+  "5_minutes_to_1_hour": "5 min–1 hour",
+  "1_to_24_hours": "1–24 hours",
+  older_than_24_hours: "Over 24 hours",
+};
+
+async function refreshStorageInventory() {
+  const button = $("settingsInventoryRefresh");
+  const note = $("inventoryNote"), rows = $("inventoryRows"), samples = $("inventorySamples");
+  button.disabled = true;
+  note.textContent = "Inspecting directory metadata… No files are being opened or modified.";
+  rows.replaceChildren();
+  samples.replaceChildren();
+  try {
+    const report = await getStorageInventory();
+    const scan = report.scan || {}, sum = report.summary || {};
+    $("inventoryRecent").textContent = scan.complete ? (sum.recent_managed_unregistered ?? "—") : "Incomplete";
+    $("inventoryEligible").textContent = scan.complete ? (sum.eligible_managed_unregistered ?? "—") : "Incomplete";
+    $("inventoryBytes").textContent = formatBytes(sum.scanned_bytes);
+    const categories = report.categories || {};
+    for (const [key, group] of Object.entries(categories)) {
+      if (!group?.count) continue;
+      const row = node("div", "artifact-inventory-row");
+      const title = node("div", "artifact-inventory-description");
+      title.append(node("strong", "", group.label || key),
+        node("span", "", `${group.count} files · ${formatBytes(group.bytes)}`));
+      const ages = node("div", "artifact-inventory-ages");
+      for (const [age, count] of Object.entries(group.ages || {})) {
+        if (count) ages.append(node("span", "", `${inventoryAgeLabels[age] || age}: ${count}`));
+      }
+      row.append(title, ages);
+      rows.append(row);
+    }
+    if (!rows.children.length) rows.append(node("p", "settings-muted", "No files in the inspected directory."));
+    for (const item of report.examples || []) {
+      samples.append(node("div", "artifact-inventory-example",
+        `${categories[item.category]?.label || item.category} · ${inventoryAgeLabels[item.age] || item.age} · ${formatBytes(item.size_bytes)}`));
+    }
+    note.textContent = `Inspected ${scan.scanned_directory_entries ?? 0} directory entries and ${scan.registered_records ?? 0}/${scan.registered_total ?? 0} database records. `
+      + (scan.complete
+        ? `Recent unregistered managed files: ${sum.recent_managed_unregistered} (${formatBytes(sum.recent_managed_unregistered_bytes)}). Nothing changed.`
+        : "Scan limit reached; counts are partial and registration status may be unknown. Nothing changed.");
+  } catch (error) {
+    ["inventoryRecent", "inventoryEligible", "inventoryBytes"].forEach(id => { $(id).textContent = "Unavailable"; });
+    note.textContent = `Read-only inventory unavailable: ${error.message}`;
+  } finally { button.disabled = false; }
+}
+
 async function refreshSystem() {
   const root = $("settingsSystemRows");
   try {
@@ -364,6 +413,7 @@ export function initializeSettings() {
   $("settingsReload").addEventListener("click", () => loadSettings({force: true}));
   $("settingsPreview").addEventListener("click", () => refreshStorage());
   $("settingsHealthRefresh").addEventListener("click", refreshArtifactHealth);
+  $("settingsInventoryRefresh").addEventListener("click", refreshStorageInventory);
   $("settingsIncludeOrphans").addEventListener("change", () => {
     view.includeOrphans = $("settingsIncludeOrphans").checked;
     view.preview = null;

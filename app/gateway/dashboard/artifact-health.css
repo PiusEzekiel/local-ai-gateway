@@ -12,3 +12,17 @@
 .settings-page .artifact-health-finding{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;border-top:1px solid var(--line-soft);padding:9px 0;font-size:10px;color:var(--muted)}
 .settings-page .artifact-health-finding code{color:var(--quiet);overflow-wrap:anywhere;max-width:100%;font-size:10px}
 @media(max-width:750px){.settings-page .artifact-health-grid{grid-template-columns:1fr}.settings-page .artifact-health-grid .settings-mini{border-right:0;border-bottom:1px solid var(--line-soft)}.settings-page .artifact-health-grid .settings-mini:last-child{border-bottom:0}}
+
+/* 9C.2 read-only inventory, visually separate from the destructive cleanup panel. */
+.settings-page .artifact-inventory{margin:0 17px 18px;border:1px solid var(--line);border-radius:9px;background:var(--panel);overflow:hidden}
+.settings-page .artifact-inventory .settings-muted{padding:4px 16px 13px;margin:0}
+.settings-page .artifact-inventory .artifact-health-grid{margin-bottom:10px}
+.settings-page .artifact-inventory-rows{padding:0 16px 12px;display:grid;gap:0}
+.settings-page .artifact-inventory-row{padding:11px 0;border-top:1px solid var(--line-soft);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;min-width:0}
+.settings-page .artifact-inventory-description{display:grid;gap:4px;min-width:180px;font-size:12px}
+.settings-page .artifact-inventory-description span{color:var(--muted);font-size:11px}
+.settings-page .artifact-inventory-ages{display:flex;align-items:center;flex-wrap:wrap;gap:5px;min-width:0}
+.settings-page .artifact-inventory-ages span{font-size:10px;color:var(--muted);border:1px solid var(--line-soft);padding:5px 7px;border-radius:6px}
+.settings-page .artifact-inventory-samples{padding:0 16px 12px;display:flex;flex-wrap:wrap;gap:7px}
+.settings-page .artifact-inventory-example{font-size:10px;color:var(--muted);padding:6px 8px;border:1px solid var(--line-soft);border-radius:6px}
+@media(max-width:750px){.settings-page .artifact-inventory-row{display:grid}.settings-page .artifact-inventory-ages{justify-content:flex-start}}

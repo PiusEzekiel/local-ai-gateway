@@ -67,7 +67,7 @@ test('repeated 401 or double-click disconnect is idempotent',()=>{
 test('auth API notifies for JSON and blob 401 but not other errors',async()=>{
   const data = new Map([['gatewayToken','fake-value']]);
   globalThis.sessionStorage={getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)};
-  const api=await import('../gateway/dashboard/api.js?v=9c1-20260920');
+  const api=await import('../gateway/dashboard/api.js?v=9c2-20260920');
   let expired=0;
   api.setUnauthorizedHandler(()=>expired++);
   const oldFetch=globalThis.fetch;

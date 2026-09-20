@@ -11,7 +11,7 @@ from test_module_9a2 import AUTH, make_app
 
 G = Path(__file__).resolve().parents[1] / 'gateway'
 D = G / 'dashboard'
-VERSION = '9c1-20260920'
+VERSION = '9c2-20260920'
 
 
 def test_authored_job_detail_links_archived_reference_to_gallery_output(tmp_path, monkeypatch):

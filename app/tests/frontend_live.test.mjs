@@ -8,8 +8,8 @@ globalThis.sessionStorage = {
   setItem: (k, v) => store.set(k, v),
   removeItem: k => store.delete(k),
 };
-const {setToken} = await import('../gateway/dashboard/api.js?v=9c1-20260920');
-const {createSSEParser, createLiveClient} = await import('../gateway/dashboard/live.js?v=9c1-20260920');
+const {setToken} = await import('../gateway/dashboard/api.js?v=9c2-20260920');
+const {createSSEParser, createLiveClient} = await import('../gateway/dashboard/live.js?v=9c2-20260920');
 
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const until = async fn => {
