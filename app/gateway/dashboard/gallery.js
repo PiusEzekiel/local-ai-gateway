@@ -1,5 +1,5 @@
-import {getJob, requestBlob} from "./api.js?v=9b21-20260920";
-import {compact, duration} from "./jobs.js?v=9b21-20260920";
+import {getJob, requestBlob} from "./api.js?v=9b5-20260920";
+import {compact, duration} from "./jobs.js?v=9b5-20260920";
 
 let cardObjectUrls = [];
 let lightboxObjectUrl = null;
@@ -17,8 +17,22 @@ let referenceLoadGeneration = 0;
 let selectedReference = null;
 let standaloneReference = null;
 let galleryReferenceUrls = [];
+// Controllers do actual network cancellation; generations prevent stale paint
+// even if a mocked fetch or a browser cache completes after abort().
+let cardRequests = new AbortController();
+let cardLoadGeneration = 0;
+let referenceRequests = new AbortController();
+let viewerRequests = null;
+
+function imageFailureMessage(error) {
+  if (error?.status === 404 || error?.status === 410) return "Image unavailable or expired";
+  if (error?.status === 401 || error?.status === 403) return "Image access denied — reconnect";
+  return "Preview temporarily unavailable";
+}
 
 function revokeReferences() {
+  referenceRequests.abort();
+  referenceRequests = new AbortController();
   ++referenceLoadGeneration;
   galleryReferenceUrls.forEach(url => URL.revokeObjectURL(url));
   galleryReferenceUrls = [];
@@ -35,25 +49,40 @@ const el = (tag, className, text) => {
   return node;
 };
 
-async function loadProtectedImage(image, path) {
+async function loadProtectedImage(image, path, fallback, generation, signal) {
   try {
-    const blob = await requestBlob(path);
-    if (!image.isConnected) return;
+    const blob = await requestBlob(path, {signal}).catch(error => {
+      if (signal.aborted || error?.name === "AbortError" || !fallback || fallback === path) throw error;
+      return requestBlob(fallback, {signal});
+    });
+    if (signal.aborted || generation !== cardLoadGeneration || !image.isConnected) return;
     const objectUrl = URL.createObjectURL(blob);
     cardObjectUrls.push(objectUrl);
     image.src = objectUrl;
-  } catch {
-    image.replaceWith(el("span", "", "Preview unavailable"));
+  } catch (error) {
+    if (signal.aborted || generation !== cardLoadGeneration || !image.isConnected) return;
+    image.replaceWith(el("span", "reference-unavailable", imageFailureMessage(error)));
   }
 }
 
 function revokeCards() {
+  cardRequests.abort();
+  cardRequests = new AbortController();
+  ++cardLoadGeneration;
   cardObjectUrls.forEach(url => URL.revokeObjectURL(url));
   cardObjectUrls = [];
 }
 
+// Leaving Gallery should stop offscreen downloads; returning rerenders cards.
+export function abortGalleryMedia() {
+  revokeCards();
+  revokeReferences();
+}
+
 export function renderGallery(container, galleryItems) {
   revokeCards();
+  const cardGeneration = cardLoadGeneration;
+  const signal = cardRequests.signal;
   items = galleryItems;
   container.replaceChildren();
   if (!items.length) {
@@ -70,7 +99,7 @@ export function renderGallery(container, galleryItems) {
       const image = el("img");
       image.alt = "";
       thumb.append(image);
-      loadProtectedImage(image, item.artifact.thumbnail_url);
+      loadProtectedImage(image, item.artifact.thumbnail_url || item.artifact.url, item.artifact.url, cardGeneration, signal);
       card.addEventListener("click", () => openLightbox(index));
     } else {
       thumb.append(el("span", "", item.error?.type || "Image unavailable"));
@@ -98,6 +127,9 @@ function fitImage() {
 }
 
 async function showProtectedViewerImage(path, title, alt) {
+  viewerRequests?.abort();
+  viewerRequests = new AbortController();
+  const signal = viewerRequests.signal;
   const image = $("lightboxImage");
   const generation = ++imageLoadGeneration;
   const status = $("lightboxStatus");
@@ -111,8 +143,8 @@ async function showProtectedViewerImage(path, title, alt) {
   status.textContent = "Loading image…";
   status.hidden = false;
   try {
-    const blob = await requestBlob(path);
-    if (generation !== imageLoadGeneration || $("lightbox").hidden) return;
+    const blob = await requestBlob(path, {signal});
+    if (signal.aborted || generation !== imageLoadGeneration || $("lightbox").hidden) return;
     const objectUrl = URL.createObjectURL(blob);
     lightboxObjectUrl = objectUrl;
     image.onload = () => {
@@ -122,9 +154,9 @@ async function showProtectedViewerImage(path, title, alt) {
       fitImage();
     };
     image.src = objectUrl;
-  } catch {
-    if (generation !== imageLoadGeneration || $("lightbox").hidden) return;
-    status.textContent = "Image unavailable or expired. Try another reference.";
+  } catch (error) {
+    if (signal.aborted || generation !== imageLoadGeneration || $("lightbox").hidden) return;
+    status.textContent = imageFailureMessage(error);
     status.hidden = false;
   }
 }
@@ -179,17 +211,18 @@ function paintReferenceRail(references, requestId, outputUrl, generation) {
       frame.append(image);
       button.addEventListener("click", () => showReference(index));
       // Preserve list order; only paint if viewer still shows this job.
-      requestBlob(ref.thumbnail_url || ref.url).catch(error => {
-        if (!ref.thumbnail_url || ref.thumbnail_url === ref.url) throw error;
-        return requestBlob(ref.url);
+      const signal = referenceRequests.signal;
+      requestBlob(ref.thumbnail_url || ref.url, {signal}).catch(error => {
+        if (signal.aborted || error?.name === "AbortError" || !ref.thumbnail_url || ref.thumbnail_url === ref.url) throw error;
+        return requestBlob(ref.url, {signal});
       }).then(blob => {
-        if (generation !== referenceLoadGeneration || !image.isConnected) return;
+        if (signal.aborted || generation !== referenceLoadGeneration || !image.isConnected) return;
         const url = URL.createObjectURL(blob);
         galleryReferenceUrls.push(url);
         image.src = url;
-      }).catch(() => {
-        if (generation === referenceLoadGeneration && frame.isConnected) {
-          frame.replaceChildren(el("span", "reference-unavailable", "Unavailable"));
+      }).catch(error => {
+        if (!signal.aborted && generation === referenceLoadGeneration && frame.isConnected) {
+          frame.replaceChildren(el("span", "reference-unavailable", imageFailureMessage(error)));
         }
       });
     }
@@ -205,11 +238,11 @@ async function showReferencesForJob(item) {
   section.hidden = false;
   section.append(el("span", "lightbox-reference-note", "Loading references…"));
   try {
-    const detail = await getJob(item.job_id);
-    if (generation !== referenceLoadGeneration || $("lightbox").hidden || items[currentIndex]?.job_id !== item.job_id) return;
+    const detail = await getJob(item.job_id, {signal: referenceRequests.signal});
+    if (referenceRequests.signal.aborted || generation !== referenceLoadGeneration || $("lightbox").hidden || items[currentIndex]?.job_id !== item.job_id) return;
     paintReferenceRail(detail.job?.references || [], item.request_id, item.artifact.url, generation);
-  } catch {
-    if (generation === referenceLoadGeneration && section.isConnected) {
+  } catch (error) {
+    if (!referenceRequests.signal.aborted && generation === referenceLoadGeneration && section.isConnected) {
       section.replaceChildren(el("span", "lightbox-reference-note", "References unavailable. The output image is unaffected."));
     }
   }
@@ -246,6 +279,8 @@ export function closeLightbox() {
   if ($("lightbox").hidden) return;
   $("lightbox").hidden = true;
   ++imageLoadGeneration;
+  viewerRequests?.abort();
+  viewerRequests = null;
   revokeReferences();
   selectedReference = null;
   standaloneReference = null;
@@ -344,6 +379,7 @@ export function initializeLightbox() {
 }
 
 window.addEventListener("beforeunload", () => {
+  viewerRequests?.abort();
   revokeCards(); revokeReferences();
   if (lightboxObjectUrl) URL.revokeObjectURL(lightboxObjectUrl);
 });

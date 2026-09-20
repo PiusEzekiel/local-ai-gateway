@@ -1,0 +1,5 @@
+/* Module 9B.4: local dashboard-session control, not a gateway shutdown. */
+.sidebar-disconnect{margin:0 8px 10px;display:flex;align-items:center;justify-content:center;gap:8px;min-height:36px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--muted);font-size:12px;cursor:pointer;transition:background .15s ease,border-color .15s ease,color .15s ease}
+.sidebar-disconnect:hover{background:#1a1f28;border-color:#4c5565;color:var(--text)}
+.sidebar-disconnect:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+@media(max-width:760px){.sidebar-disconnect{width:max-content;margin:9px 6px 1px;padding:6px 12px;min-height:32px;font-size:11px}}

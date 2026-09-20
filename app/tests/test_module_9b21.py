@@ -8,7 +8,7 @@ import re
 
 D = Path(__file__).resolve().parents[1] / 'gateway' / 'dashboard'
 G = D.parent
-VERSION = '9b21-20260920'
+VERSION = '9b5-20260920'
 
 
 def test_jobs_generated_image_is_an_accessible_button_not_a_passive_img():
@@ -28,7 +28,7 @@ def test_jobs_generated_event_uses_protected_artifact_url_only():
     assert 'outputUrl.startsWith("/dashboard/api/artifacts/")' in js
     assert 'url.startsWith("/dashboard/api/artifacts/")' in gallery
     assert 'showProtectedViewerImage(url, requestId || "Generated image"' in gallery
-    assert 'requestBlob(path)' in gallery
+    assert 'requestBlob(path, {signal})' in gallery
     assert '.innerHTML' not in gallery
 
 

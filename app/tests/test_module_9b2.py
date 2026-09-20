@@ -11,7 +11,7 @@ from test_module_9a2 import AUTH, make_app
 
 G = Path(__file__).resolve().parents[1] / 'gateway'
 D = G / 'dashboard'
-VERSION = '9b21-20260920'
+VERSION = '9b5-20260920'
 
 
 def test_authored_job_detail_links_archived_reference_to_gallery_output(tmp_path, monkeypatch):
@@ -73,7 +73,7 @@ def test_gallery_has_reference_rail_and_generated_image_control():
 
 def test_gallery_joins_only_selected_job_and_preserves_reference_order():
     code = (D/'gallery.js').read_text(encoding='utf8')
-    assert 'getJob(item.job_id)' in code
+    assert 'getJob(item.job_id, {signal: referenceRequests.signal})' in code
     assert 'for (const [index, ref] of references.entries())' in code
     assert 'showReference(index)' in code
     assert 'ref.url' in code and 'ref.thumbnail_url || ref.url' in code

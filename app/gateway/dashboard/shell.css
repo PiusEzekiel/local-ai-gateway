@@ -1,0 +1,75 @@
+/* Module 9B.5 — clear gateway onboarding and accessible collapsible sidebar.
+   Loaded LAST so these scoped rules can override the legacy single-line CSS. */
+.auth-screen { overflow-y:auto; display:flex; align-items:center; justify-content:center; padding:clamp(20px,4vw,54px); background: radial-gradient(ellipse 65% 60% at 18% 12%,#182236 0%,transparent 72%),var(--bg); }
+.auth-layout { display:grid; grid-template-columns:minmax(0,1.05fr) minmax(340px,.82fr); align-items:center; gap:clamp(30px,6vw,94px); width:min(100%,1030px); margin:auto; }
+.auth-intro { min-width:0; }
+.auth-identity { display:flex;align-items:center;gap:11px;margin-bottom:clamp(34px,5vh,64px);font-size:12px;letter-spacing:.12em;font-weight:800; }
+.auth-identity .brand-mark {width:39px;height:39px;font-size:13px;}
+.auth-identity small {display:block;color:var(--quiet);font-size:9px;letter-spacing:.14em;margin-top:4px;}
+.auth-eyebrow {color:#8fb1ed;font-weight:750;text-transform:uppercase;letter-spacing:.12em;font-size:10px;margin:0 0 13px;}
+.auth-intro h1 {font-size:clamp(30px,3.5vw,48px);max-width:550px;line-height:1.14;letter-spacing:-.05em;margin:0 0 20px;}
+.auth-intro h1 em {font-style:normal;color:#b4cdf8;}
+.auth-lead {color:var(--muted);font-size:13px;line-height:1.8;max-width:510px;margin:0 0 30px;}
+.auth-capabilities {display:grid;gap:19px;padding-top:24px;border-top:1px solid var(--line-soft);}
+.auth-capabilities>div {display:flex;align-items:flex-start;gap:13px;}
+.auth-capabilities>div>span {flex:0 0 32px;width:32px;height:32px;display:grid;place-items:center;background:#1a2333;border:1px solid #2e3b51;border-radius:8px;color:#b8cef5;font-size:16px;}
+.auth-capabilities p {margin:0;display:grid;gap:4px;}
+.auth-capabilities strong {font-size:12px;}
+.auth-capabilities small {font-size:11px;line-height:1.55;color:var(--quiet);}
+.auth-local-note {display:flex;align-items:center;gap:9px;color:var(--quiet);font-size:10px;margin:30px 0 0;}
+.auth-card {width:100%;padding:clamp(23px,3vw,36px);background:#151a22;border-color:#303848;box-shadow:0 30px 100px #0006;}
+.auth-card .brand-mark {display:none;}
+.auth-card h2 {font-size:24px;letter-spacing:-.035em;margin:8px 0 9px;}
+.auth-card .muted {font-size:12px;line-height:1.65;margin:0 0 26px;}
+.auth-card label {font-size:11px;font-weight:650;color:var(--text);}
+.auth-card input {min-height:43px;}
+.auth-card .auth-token-hint {color:var(--quiet);font-size:10px;line-height:1.6;margin:9px 0 0;}
+.auth-token-hint strong {color:#c3d5f1;}
+.auth-card .form-error {line-height:1.5;margin:12px 0;}
+.auth-card .primary {min-height:43px;display:flex;align-items:center;justify-content:center;gap:10px;}
+.auth-card .primary span {font-size:17px;}
+.auth-help {margin-top:23px;border-top:1px solid var(--line);padding-top:18px;color:var(--muted);}
+.auth-help summary {color:#b1c8ef;font-size:11px;font-weight:700;cursor:pointer;}
+.auth-help summary:focus-visible {outline:2px solid var(--focus);outline-offset:4px;}
+.auth-help p {font-size:11px;line-height:1.6;margin:12px 0;}
+.auth-help code {color:#bcd0ee;}
+.auth-command {display:block;padding:10px 12px;font-size:10px;line-height:1.65;word-break:break-word;overflow-wrap:anywhere;background:#0a0e15;border:1px solid var(--line);border-radius:7px;}
+.auth-privacy {display:flex;gap:10px;align-items:flex-start;border-top:1px solid var(--line);margin-top:21px;padding-top:16px;}
+.auth-privacy>span {color:#8fb1ed;font-size:17px;}
+.auth-privacy p {font-size:10px;line-height:1.65;color:var(--quiet);margin:0;}
+.auth-privacy strong {color:var(--muted);}
+/* Desktop: keep a narrow, actionable rail, rather than hiding the control itself. */
+.app-shell { transition:grid-template-columns .18s ease; }
+.app-shell.sidebar-collapsed {grid-template-columns:72px minmax(0,1fr);}
+.sidebar-toggle {flex:0 0 34px;width:34px;height:34px;display:grid;place-items:center;}
+.sidebar-toggle svg {pointer-events:none;}
+.app-shell.sidebar-collapsed .sidebar {padding-left:8px;padding-right:8px;}
+.app-shell.sidebar-collapsed .brand {justify-content:center;padding:0;margin-bottom:24px;}
+.app-shell.sidebar-collapsed .brand-copy,
+.app-shell.sidebar-collapsed .nav-label,
+.app-shell.sidebar-collapsed .nav-item kbd,
+.app-shell.sidebar-collapsed #sideStatus,
+.app-shell.sidebar-collapsed .disconnect-label {display:none;}
+.nav-mini {display:none;}
+.app-shell.sidebar-collapsed .nav-mini {display:block;font-size:10px;font-weight:800;letter-spacing:.045em;}
+.app-shell.sidebar-collapsed .nav-item {height:40px;padding:0;justify-content:center;}
+.app-shell.sidebar-collapsed .sidebar-foot {justify-content:center;padding:12px 0;}
+.app-shell.sidebar-collapsed .sidebar-disconnect {justify-content:center;margin:0 4px 10px;padding:6px 0;}
+.app-shell.sidebar-collapsed .disconnect-icon {font-size:17px;}
+/* Lightbox is a sibling of the app shell, so use the same sidebar rail width. */
+.app-shell.sidebar-collapsed ~ .lightbox {inset:65px 0 0 72px;}
+@media(max-width:760px) {
+  .auth-screen {padding:18px;align-items:flex-start;}
+  .auth-layout {grid-template-columns:minmax(0,1fr);gap:26px;max-width:490px;}
+  .auth-identity {margin-bottom:16px;}
+  .auth-intro h1 {font-size:clamp(27px,8vw,38px);margin-bottom:12px;}
+  .auth-lead {font-size:11px;line-height:1.65;margin-bottom:12px;}
+  .auth-capabilities {display:none;} /* Put the sign-in action above the fold on phones. */
+  .auth-local-note {margin-top:12px;}
+  .auth-card {padding:22px;}
+  .app-shell.sidebar-collapsed {display:block;}
+  .app-shell.sidebar-collapsed .sidebar {display:none;}
+  .app-shell.sidebar-collapsed ~ .lightbox {inset:65px 0 0 0;}
+  .sidebar-toggle {flex-basis:34px;}
+}
+@media(prefers-reduced-motion:reduce){.app-shell {transition:none;}}

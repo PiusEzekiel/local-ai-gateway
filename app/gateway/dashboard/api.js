@@ -1,4 +1,11 @@
 let token = sessionStorage.getItem("gatewayToken") || "";
+let unauthorizedHandler = null;
+
+// A single session-bound handler catches 401s from *all* dashboard API calls,
+// not only Overview and SSE. Never include the bearer value in diagnostics.
+export function setUnauthorizedHandler(callback) {
+  unauthorizedHandler = typeof callback === "function" ? callback : null;
+}
 
 export function setToken(value) {
   token = value.trim();
@@ -13,6 +20,7 @@ export async function request(path, options = {}) {
   headers.set("Authorization", `Bearer ${token}`);
   const response = await fetch(path, {...options, headers, cache: "no-store"});
   if (!response.ok) {
+    if (response.status === 401) unauthorizedHandler?.();
     let message = `Request failed (${response.status})`;
     try { message = (await response.json()).error?.message || message; } catch { /* non-JSON response */ }
     const error = new Error(message);
@@ -23,7 +31,7 @@ export async function request(path, options = {}) {
 }
 
 export const getSummary = () => request("/dashboard/api/summary");
-export const getJob = id => request(`/dashboard/api/jobs/${encodeURIComponent(id)}`);
+export const getJob = (id, options = {}) => request(`/dashboard/api/jobs/${encodeURIComponent(id)}`, options);
 export const getQuota = (historyLimit = 120) => request(`/dashboard/api/quota?history_limit=${historyLimit}`);
 export const refreshQuota = () => request("/dashboard/api/quota/refresh", {method: "POST"});
 
@@ -36,10 +44,15 @@ function analyticsPath(path, {range = "24h", start = "", end = ""} = {}) {
 export const getUsage = query => analyticsPath("/dashboard/api/usage", query);
 export const getPerformance = query => analyticsPath("/dashboard/api/performance", query);
 
-export async function requestBlob(path) {
+export async function requestBlob(path, {signal} = {}) {
   const headers = new Headers({Authorization: `Bearer ${token}`});
-  const response = await fetch(path, {headers, cache: "no-store"});
-  if (!response.ok) throw new Error(`Image request failed (${response.status})`);
+  const response = await fetch(path, {headers, signal, cache: "no-store"});
+  if (!response.ok) {
+    if (response.status === 401) unauthorizedHandler?.();
+    const error = new Error(`Image request failed (${response.status})`);
+    error.status = response.status;
+    throw error;
+  }
   return response.blob();
 }
 
@@ -52,11 +65,11 @@ export function getJobs({limit = 50, cursor = "", status = "", task = "", search
   return request(`/dashboard/api/jobs?${params}`);
 }
 
-export function getGallery({limit = 48, cursor = "", category = "all", search = ""} = {}) {
+export function getGallery({limit = 48, cursor = "", category = "all", search = ""} = {}, options = {}) {
   const params = new URLSearchParams({limit: String(limit), category});
   if (cursor) params.set("cursor", cursor);
   if (search) params.set("search", search);
-  return request(`/dashboard/api/gallery?${params}`);
+  return request(`/dashboard/api/gallery?${params}`, options);
 }
 
 // Module 6D: authenticated, read-only failure investigation API.

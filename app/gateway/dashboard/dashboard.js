@@ -1,14 +1,26 @@
-import {getGallery, getJobs, getPerformance, getSummary, getUsage, hasToken, setToken} from "./api.js?v=9b21-20260920";
-import {state, update} from "./state.js?v=9b21-20260920";
-import {compact, duration, renderFeed, selectJob} from "./jobs.js?v=9b21-20260920";
-import {closeLightbox, initializeLightbox, renderGallery} from "./gallery.js?v=9b21-20260920";
-import {clearAnalyticsError, renderAnalyticsError, renderPerformance, renderUsage} from "./analytics.js?v=9b21-20260920";
-import {initializeDiagnostics, loadDiagnostics, inspectDiagnosticJob} from "./diagnostics.js?v=9b21-20260920";
-import {initializeSettings, loadSettings, settingsHasUnsavedChanges, discardSettingsChanges, refreshSettingsView} from "./settings.js?v=9b21-20260920";
-import {createLiveClient} from "./live.js?v=9b21-20260920";
-import {createSyncStatus} from "./sync_status.js?v=9b21-20260920";
+import {getGallery, getJobs, getPerformance, getSummary, getUsage, hasToken, setToken, setUnauthorizedHandler} from "./api.js?v=9b5-20260920";
+import {state, update} from "./state.js?v=9b5-20260920";
+import {compact, duration, renderFeed, selectJob} from "./jobs.js?v=9b5-20260920";
+import {abortGalleryMedia, closeLightbox, initializeLightbox, renderGallery} from "./gallery.js?v=9b5-20260920";
+import {clearAnalyticsError, renderAnalyticsError, renderPerformance, renderUsage} from "./analytics.js?v=9b5-20260920";
+import {initializeDiagnostics, loadDiagnostics, inspectDiagnosticJob} from "./diagnostics.js?v=9b5-20260920";
+import {initializeSettings, loadSettings, settingsHasUnsavedChanges, discardSettingsChanges, refreshSettingsView} from "./settings.js?v=9b5-20260920";
+import {createLiveClient} from "./live.js?v=9b5-20260920";
+import {createSyncStatus} from "./sync_status.js?v=9b5-20260920";
 
 const $ = id => document.getElementById(id);
+// Module 9B.5 — a display-only preference stored in this browser tab.
+// Collapsing the navigation never stops streaming or closes an image preview.
+const SIDEBAR_PREF = "gatewaySidebarCollapsed";
+function setSidebarCollapsed(collapsed) {
+  const isCollapsed = Boolean(collapsed);
+  $("appShell").classList.toggle("sidebar-collapsed", isCollapsed);
+  const control = $("sidebarToggle");
+  control.setAttribute("aria-expanded", String(!isCollapsed));
+  control.setAttribute("aria-label", isCollapsed ? "Expand sidebar" : "Collapse sidebar");
+  control.title = isCollapsed ? "Expand sidebar" : "Collapse sidebar";
+  sessionStorage.setItem(SIDEBAR_PREF, isCollapsed ? "1" : "0");
+}
 // The transport badge is inspectable, but it NEVER replaces gateway health.
 const syncMonitor = createSyncStatus({
   badge: $("liveStatus"), toggle: $("syncDetailsToggle"), panel: $("syncDetails"),
@@ -21,6 +33,17 @@ let refreshTimer;
 let countdownTimer;
 let searchTimer;
 let gallerySearchTimer;
+let galleryListController = null;
+let galleryRequestGeneration = 0;
+let galleryLoadMoreInFlight = false;
+
+function cancelGalleryList() {
+  ++galleryRequestGeneration;
+  galleryListController?.abort();
+  galleryListController = null;
+  galleryLoadMoreInFlight = false;
+  $("galleryLoadMore").disabled = false;
+}
 let diagnosticsTimer;
 let reconciliationTimer;
 let changeTimer;
@@ -193,6 +216,35 @@ function renderSummary(summary) {
   });
 }
 
+// Module 9B.4 — this is a *browser-tab* disconnect, not bearer-token
+// rotation and not a gateway shutdown. A reload discards retained job details,
+// blob URLs and module-local state that cannot safely be cleared individually.
+let sessionClosing = false;
+function disconnectSession({expired = false} = {}) {
+  if (sessionClosing) return;
+  if (!expired && settingsHasUnsavedChanges() &&
+      !window.confirm("Disconnect and discard unsaved settings changes?")) return;
+  sessionClosing = true;
+  ++summaryGeneration; // an outstanding snapshot must not reveal the old view
+  clearTimeout(searchTimer);
+  clearTimeout(gallerySearchTimer);
+  clearTimeout(changeTimer);
+  liveClient.stop();
+  syncMonitor.hide();
+  closeLightbox();
+  cancelGalleryList();
+  abortGalleryMedia(); // abort authenticated images and revoke blob URLs
+  setToken("");       // clear both the module-local token and sessionStorage
+  $("token").value = "";
+  $("appShell").hidden = true;
+  $("authScreen").hidden = false;
+  $("authError").textContent = expired ?
+    "The gateway token is no longer valid. Connect again." : "";
+  if (expired) sessionStorage.setItem("gatewayAuthNotice", "expired");
+  else sessionStorage.removeItem("gatewayAuthNotice");
+  window.location.reload();
+}
+
 async function refresh({showAuthError = false, includeJobs = true} = {}) {
   if (!hasToken()) return;
   const generation = ++summaryGeneration;
@@ -216,7 +268,11 @@ async function refresh({showAuthError = false, includeJobs = true} = {}) {
   } catch (error) {
     if (generation !== summaryGeneration) return;
     setConnected(false, error.message);
-    if (error.status === 401 || showAuthError) {
+    if (error.status === 401) {
+      disconnectSession({expired: true});
+      return;
+    }
+    if (showAuthError) {
       $("authScreen").hidden = false;
       $("appShell").hidden = true;
       $("authError").textContent = error.message;
@@ -230,6 +286,11 @@ function go(page) {
     discardSettingsChanges();
   }
   closeLightbox(); // keep sidebar navigation usable while a Gallery image is open
+  if (state.page === "gallery") {
+    clearTimeout(gallerySearchTimer);
+    cancelGalleryList();
+    abortGalleryMedia();
+  }
   update({page});
   document.querySelectorAll(".page").forEach(node => node.classList.toggle("active", node.id === `page-${page}`));
   document.querySelectorAll(".nav-item").forEach(node => {
@@ -291,20 +352,37 @@ async function loadJobs(reset = false) {
 }
 
 async function loadGallery(reset = false) {
+  if (!hasToken() || state.page !== "gallery") return;
+  // Prevent a repeated Load more click from inserting the same page twice.
+  if (!reset && (galleryLoadMoreInFlight || !state.galleryCursor)) return;
+  cancelGalleryList(); // abort prior reset/load-more before starting the next query
+  const generation = galleryRequestGeneration;
+  const controller = new AbortController();
+  galleryListController = controller;
+  if (!reset) galleryLoadMoreInFlight = true;
+  $("galleryLoadMore").disabled = true;
   const query = {
     limit: 48, category: state.galleryCategory,
     search: $("gallerySearch").value.trim(),
   };
-  if (!reset && state.galleryCursor) query.cursor = state.galleryCursor;
+  if (!reset) query.cursor = state.galleryCursor;
   try {
-    const data = await getGallery(query);
+    const data = await getGallery(query, {signal: controller.signal});
+    if (controller.signal.aborted || generation !== galleryRequestGeneration || state.page !== "gallery") return;
     const galleryItems = reset ? data.items : [...state.galleryItems, ...data.items];
     update({galleryItems, galleryCursor: data.next_cursor});
     renderGallery($("galleryGrid"), galleryItems);
     $("galleryLoadMore").hidden = !data.next_cursor;
     $("galleryCount").textContent = `${galleryItems.length} shown`;
   } catch (error) {
+    if (controller.signal.aborted || generation !== galleryRequestGeneration || state.page !== "gallery") return;
     $("galleryGrid").textContent = error.message;
+  } finally {
+    if (generation === galleryRequestGeneration) {
+      galleryListController = null;
+      galleryLoadMoreInFlight = false;
+      $("galleryLoadMore").disabled = false;
+    }
   }
 }
 
@@ -337,13 +415,8 @@ function showLiveStatus(next) {
 const liveClient = createLiveClient({
   onStatus: showLiveStatus,
   onUnauthorized() {
-    // Never retry a bad bearer indefinitely or expose it in a URL.
-    liveClient.stop();
-    showLiveStatus("unauthorized");
-    setConnected(false, "Authentication required");
-    $("authScreen").hidden = false;
-    $("appShell").hidden = true;
-    $("authError").textContent = "The gateway token is no longer valid. Connect again.";
+    // Stop retrying an expired token and wipe the browser tab's old data.
+    disconnectSession({expired: true});
   },
   onEvent(type, data) {
     syncMonitor.recordEvent(type);
@@ -377,6 +450,9 @@ function pollingInterval() {
   if (lastLiveStatus !== "live") refresh();
 }
 
+$("sidebarToggle").addEventListener("click", () =>
+  setSidebarCollapsed(!$("appShell").classList.contains("sidebar-collapsed")));
+$("disconnectButton").addEventListener("click", () => disconnectSession());
 $("authForm").addEventListener("submit", event => {
   event.preventDefault();
   liveClient.stop();
@@ -390,9 +466,14 @@ $("loadMore").addEventListener("click", () => loadJobs(false));
 $("galleryLoadMore").addEventListener("click", () => loadGallery(false));
 [$("jobStatus"), $("jobTask")].forEach(node => node.addEventListener("change", () => loadJobs(true)));
 $("jobSearch").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadJobs(true), 250); });
-$("gallerySearch").addEventListener("input", () => { clearTimeout(gallerySearchTimer); gallerySearchTimer = setTimeout(() => loadGallery(true), 250); });
+$("gallerySearch").addEventListener("input", () => {
+  cancelGalleryList(); // invalidate immediately, not after the search debounce
+  clearTimeout(gallerySearchTimer);
+  gallerySearchTimer = setTimeout(() => loadGallery(true), 250);
+});
 document.querySelectorAll("[data-gallery-category]").forEach(button => button.addEventListener("click", () => {
   document.querySelectorAll("[data-gallery-category]").forEach(node => node.classList.toggle("active", node === button));
+  cancelGalleryList();
   update({galleryCategory: button.dataset.galleryCategory});
   loadGallery(true);
 }));
@@ -423,12 +504,18 @@ document.addEventListener("keydown", event => {
   if (pages[index]) go(pages[index]);
 });
 
+// Only a constant reason flag survives an expired session — never the token.
+if (sessionStorage.getItem("gatewayAuthNotice") === "expired")
+  $("authError").textContent = "The gateway token is no longer valid. Connect again.";
+sessionStorage.removeItem("gatewayAuthNotice");
+setSidebarCollapsed(sessionStorage.getItem(SIDEBAR_PREF) === "1");
 $("token").value = sessionStorage.getItem("gatewayToken") || "";
 document.querySelectorAll("[data-custom-end]").forEach(node => { node.value = new Date().toISOString().slice(0, 16); });
 document.querySelectorAll("[data-custom-start]").forEach(node => { node.value = new Date(Date.now() - 86400000).toISOString().slice(0, 16); });
 initializeLightbox();
 initializeDiagnostics();
 initializeSettings();
+setUnauthorizedHandler(() => disconnectSession({expired: true}));
 if (hasToken()) refresh({showAuthError: true});
 refreshTimer = setInterval(pollingInterval, 15000);
 reconciliationTimer = setInterval(() => {
@@ -454,6 +541,7 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 window.addEventListener("beforeunload", () => {
+  cancelGalleryList();
   liveClient.stop();
   clearInterval(refreshTimer); clearInterval(countdownTimer); clearInterval(diagnosticsTimer);
   clearInterval(reconciliationTimer); clearTimeout(changeTimer);
