@@ -1,0 +1,143 @@
+[api shell.run]
+Microsoft Windows [Version 10.0.26200.9457]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\pinokio\api\local-ai-gateway\app>conda_hook & conda deactivate & conda deactivate & conda deactivate & conda activate base & C:\pinokio\api\local-ai-gateway\app\.venv\Scripts\activate C:\pinokio\api\local-ai-gateway\app\.venv && powershell -NoProfile -ExecutionPolicy Bypass -File run.ps1 -Bind 0.0.0.0 -Port 8080
+Use .\show-token.ps1 in another PowerShell window to copy the token into n8n.
+Gateway UI: http://127.0.0.1:8080
+INFO:     Started server process [29652]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)
+INFO:     job_queued request_id=f95c306a-f19d-4798-ae26-67fc38e38f24 task=generate model=gpt-5.6-luna
+INFO:     job_running request_id=f95c306a-f19d-4798-ae26-67fc38e38f24 task=generate model=gpt-5.6-luna duration_ms=0 stage=Worker acquired error=none error_message=none
+INFO:     job_running request_id=f95c306a-f19d-4798-ae26-67fc38e38f24 task=generate model=gpt-5.6-luna duration_ms=16 stage=Codex generating response error=none error_message=none
+INFO:     codex_text_run_start request_id=f95c306a-f19d-4798-ae26-67fc38e38f24 model=gpt-5.6-luna web_search=False schema=no prompt_chars=7447 timeout_seconds=119.98
+INFO:     job_running request_id=f95c306a-f19d-4798-ae26-67fc38e38f24 task=generate model=gpt-5.6-luna duration_ms=750 stage=Codex session started error=none error_message=none
+INFO:     job_running request_id=f95c306a-f19d-4798-ae26-67fc38e38f24 task=generate model=gpt-5.6-luna duration_ms=781 stage=Codex is working error=none error_message=none
+INFO:     job_running request_id=f95c306a-f19d-4798-ae26-67fc38e38f24 task=generate model=gpt-5.6-luna duration_ms=10859 stage=Finalizing response error=none error_message=none
+INFO:     codex_text_exit request_id=f95c306a-f19d-4798-ae26-67fc38e38f24 exit_code=0 stdout_bytes=1965 stderr_bytes=39 events=thread.started,turn.started,item.completed,turn.completed
+INFO:     codex_text_run_completed request_id=f95c306a-f19d-4798-ae26-67fc38e38f24 output_chars=1595
+INFO:     job_running request_id=f95c306a-f19d-4798-ae26-67fc38e38f24 task=generate model=gpt-5.6-luna duration_ms=12703 stage=Codex completed error=none error_message=none
+INFO:     job_completed request_id=f95c306a-f19d-4798-ae26-67fc38e38f24 task=generate model=gpt-5.6-luna duration_ms=12703 stage=Response ready error=none error_message=none
+INFO:     image_request_received request_id=asset_image_70_year_old_mother_attempt_1 model=gpt-5.6-luna reference_count=0 prompt_chars=859 timeout_seconds=600
+INFO:     job_queued request_id=asset_image_70_year_old_mother_attempt_1 task=image model=gpt-5.6-luna
+INFO:     image_request_accepted request_id=asset_image_70_year_old_mother_attempt_1 pending=1 max_concurrency=1 max_queue=4
+INFO:     image_worker_acquired request_id=asset_image_70_year_old_mother_attempt_1 queue_wait_ms=0
+INFO:     job_running request_id=asset_image_70_year_old_mother_attempt_1 task=image model=gpt-5.6-luna duration_ms=0 stage=Worker acquired error=none error_message=none
+INFO:     image_run_start request_id=asset_image_70_year_old_mother_attempt_1 model=gpt-5.6-luna reference_count=0 prompt_chars=859 timeout_seconds=600.00
+INFO:     image_references_ready request_id=asset_image_70_year_old_mother_attempt_1 count=0 files=none
+INFO:     image_codex_launch request_id=asset_image_70_year_old_mother_attempt_1 exe=codex.exe model=gpt-5.6-luna reference_count=0 stdin_prompt_bytes=1004 sandbox=read-only web_search=disabled
+INFO:     job_running request_id=asset_image_70_year_old_mother_attempt_1 task=image model=gpt-5.6-luna duration_ms=0 stage=Launching Codex error=none error_message=none
+INFO:     image_codex_process_started request_id=asset_image_70_year_old_mother_attempt_1 pid=15988
+INFO:     image_codex_stdin_sent request_id=asset_image_70_year_old_mother_attempt_1 bytes=1004
+INFO:     job_running request_id=asset_image_70_year_old_mother_attempt_1 task=image model=gpt-5.6-luna duration_ms=578 stage=Codex session started error=none error_message=none
+INFO:     job_running request_id=asset_image_70_year_old_mother_attempt_1 task=image model=gpt-5.6-luna duration_ms=594 stage=Codex is working error=none error_message=none
+INFO:     job_running request_id=asset_image_70_year_old_mother_attempt_1 task=image model=gpt-5.6-luna duration_ms=41781 stage=Finalizing response error=none error_message=none
+INFO:     image_codex_exit request_id=asset_image_70_year_old_mother_attempt_1 exit_code=0 stdout_bytes=564 stderr_bytes=29 events=thread.started,turn.started,item.completed,turn.completed stdin_error=none
+WARNING:  image_codex_stderr request_id=asset_image_70_year_old_mother_attempt_1 diagnostic=stderr=Reading prompt from stdin...
+INFO:     image_codex_thread request_id=asset_image_70_year_old_mother_attempt_1 thread_id=01a0b8a0-4a53-71e3-ad6d-8b1f2d6edd30
+INFO:     image_output_scan request_id=asset_image_70_year_old_mother_attempt_1 directory_exists=True candidate_count=1 files=exec-d703882b-68c2-4930-933c-a5e6df4d674b.png
+INFO:     image_output_ready request_id=asset_image_70_year_old_mother_attempt_1 file=exec-d703882b-68c2-4930-933c-a5e6df4d674b.png bytes=1727879 mime_type=image/png
+INFO:     job_running request_id=asset_image_70_year_old_mother_attempt_1 task=image model=gpt-5.6-luna duration_ms=44250 stage=Codex completed error=none error_message=none
+INFO:     job_running request_id=asset_image_70_year_old_mother_attempt_1 task=image model=gpt-5.6-luna duration_ms=44406 stage=Artifact ready error=none error_message=none
+INFO:     job_completed request_id=asset_image_70_year_old_mother_attempt_1 task=image model=gpt-5.6-luna duration_ms=44406 stage=Image ready error=none error_message=none
+INFO:     image_request_completed request_id=asset_image_70_year_old_mother_attempt_1 duration_ms=44406 mime_type=image/png output_file=art_ce9f3e3b71644e769556ff7f13932172.png
+INFO:     image_request_released request_id=asset_image_70_year_old_mother_attempt_1 pending=0
+INFO:     image_request_received request_id=asset_image_adult_son_attempt_1 model=gpt-5.6-luna reference_count=0 prompt_chars=825 timeout_seconds=600
+INFO:     job_queued request_id=asset_image_adult_son_attempt_1 task=image model=gpt-5.6-luna
+INFO:     image_request_accepted request_id=asset_image_adult_son_attempt_1 pending=1 max_concurrency=1 max_queue=4
+INFO:     image_worker_acquired request_id=asset_image_adult_son_attempt_1 queue_wait_ms=0
+INFO:     job_running request_id=asset_image_adult_son_attempt_1 task=image model=gpt-5.6-luna duration_ms=0 stage=Worker acquired error=none error_message=none
+INFO:     image_run_start request_id=asset_image_adult_son_attempt_1 model=gpt-5.6-luna reference_count=0 prompt_chars=825 timeout_seconds=600.00
+INFO:     image_references_ready request_id=asset_image_adult_son_attempt_1 count=0 files=none
+INFO:     image_codex_launch request_id=asset_image_adult_son_attempt_1 exe=codex.exe model=gpt-5.6-luna reference_count=0 stdin_prompt_bytes=970 sandbox=read-only web_search=disabled
+INFO:     job_running request_id=asset_image_adult_son_attempt_1 task=image model=gpt-5.6-luna duration_ms=0 stage=Launching Codex error=none error_message=none
+INFO:     image_codex_process_started request_id=asset_image_adult_son_attempt_1 pid=28248
+INFO:     image_codex_stdin_sent request_id=asset_image_adult_son_attempt_1 bytes=970
+INFO:     job_running request_id=asset_image_adult_son_attempt_1 task=image model=gpt-5.6-luna duration_ms=594 stage=Codex session started error=none error_message=none
+INFO:     job_running request_id=asset_image_adult_son_attempt_1 task=image model=gpt-5.6-luna duration_ms=609 stage=Codex is working error=none error_message=none
+INFO:     job_running request_id=asset_image_adult_son_attempt_1 task=image model=gpt-5.6-luna duration_ms=37188 stage=Finalizing response error=none error_message=none
+INFO:     image_codex_exit request_id=asset_image_adult_son_attempt_1 exit_code=0 stdout_bytes=601 stderr_bytes=29 events=thread.started,turn.started,item.completed,turn.completed stdin_error=none
+WARNING:  image_codex_stderr request_id=asset_image_adult_son_attempt_1 diagnostic=stderr=Reading prompt from stdin...
+INFO:     image_codex_thread request_id=asset_image_adult_son_attempt_1 thread_id=01a0b8a1-1e21-70b1-a6f9-426486e10ba5
+INFO:     image_output_scan request_id=asset_image_adult_son_attempt_1 directory_exists=True candidate_count=1 files=exec-d55b8906-7c21-4781-887a-4373886e6d2c.png
+INFO:     image_output_ready request_id=asset_image_adult_son_attempt_1 file=exec-d55b8906-7c21-4781-887a-4373886e6d2c.png bytes=1591540 mime_type=image/png
+INFO:     job_running request_id=asset_image_adult_son_attempt_1 task=image model=gpt-5.6-luna duration_ms=39469 stage=Codex completed error=none error_message=none
+INFO:     job_running request_id=asset_image_adult_son_attempt_1 task=image model=gpt-5.6-luna duration_ms=39547 stage=Artifact ready error=none error_message=none
+INFO:     job_completed request_id=asset_image_adult_son_attempt_1 task=image model=gpt-5.6-luna duration_ms=39547 stage=Image ready error=none error_message=none
+INFO:     image_request_completed request_id=asset_image_adult_son_attempt_1 duration_ms=39547 mime_type=image/png output_file=art_71e35efde7d24f64bfaa0c970352708e.png
+INFO:     image_request_released request_id=asset_image_adult_son_attempt_1 pending=0
+INFO:     job_queued request_id=d34661cc-0bcc-49da-975f-dd762c00e1f1 task=generate model=gpt-5.6-luna
+INFO:     job_running request_id=d34661cc-0bcc-49da-975f-dd762c00e1f1 task=generate model=gpt-5.6-luna duration_ms=15 stage=Worker acquired error=none error_message=none
+INFO:     job_running request_id=d34661cc-0bcc-49da-975f-dd762c00e1f1 task=generate model=gpt-5.6-luna duration_ms=15 stage=Codex generating response error=none error_message=none
+INFO:     codex_text_run_start request_id=d34661cc-0bcc-49da-975f-dd762c00e1f1 model=gpt-5.6-luna web_search=False schema=no prompt_chars=6882 timeout_seconds=119.99
+INFO:     job_running request_id=d34661cc-0bcc-49da-975f-dd762c00e1f1 task=generate model=gpt-5.6-luna duration_ms=672 stage=Codex session started error=none error_message=none
+INFO:     job_running request_id=d34661cc-0bcc-49da-975f-dd762c00e1f1 task=generate model=gpt-5.6-luna duration_ms=687 stage=Codex is working error=none error_message=none
+INFO:     job_running request_id=d34661cc-0bcc-49da-975f-dd762c00e1f1 task=generate model=gpt-5.6-luna duration_ms=15687 stage=Finalizing response error=none error_message=none
+INFO:     codex_text_exit request_id=d34661cc-0bcc-49da-975f-dd762c00e1f1 exit_code=0 stdout_bytes=2832 stderr_bytes=39 events=thread.started,turn.started,item.completed,turn.completed
+INFO:     codex_text_run_completed request_id=d34661cc-0bcc-49da-975f-dd762c00e1f1 output_chars=2458
+INFO:     job_running request_id=d34661cc-0bcc-49da-975f-dd762c00e1f1 task=generate model=gpt-5.6-luna duration_ms=17656 stage=Codex completed error=none error_message=none
+INFO:     job_completed request_id=d34661cc-0bcc-49da-975f-dd762c00e1f1 task=generate model=gpt-5.6-luna duration_ms=17656 stage=Response ready error=none error_message=none
+INFO:     image_request_received request_id=scene_image_1_initial model=gpt-5.6-luna reference_count=2 prompt_chars=1367 timeout_seconds=600
+INFO:     job_queued request_id=scene_image_1_initial task=image model=gpt-5.6-luna
+INFO:     image_request_accepted request_id=scene_image_1_initial pending=1 max_concurrency=1 max_queue=4
+INFO:     image_worker_acquired request_id=scene_image_1_initial queue_wait_ms=0
+INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=0 stage=Worker acquired error=none error_message=none
+INFO:     image_run_start request_id=scene_image_1_initial model=gpt-5.6-luna reference_count=2 prompt_chars=1367 timeout_seconds=599.98
+INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=16 stage=Downloading reference image 1/2 error=none error_message=none
+INFO:     reference_download_start request_id=scene_image_1_initial index=1 reference_id=70_year_old_mother host=drive.google.com
+INFO:     reference_download_response request_id=scene_image_1_initial reference_id=70_year_old_mother status=200 final_host=drive.usercontent.google.com content_type=image/png bytes=1737810
+INFO:     reference_download_ready request_id=scene_image_1_initial reference_id=70_year_old_mother local_file=01_70_year_old_mother.png bytes=1737810
+INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=3203 stage=Downloading reference image 2/2 error=none error_message=none
+INFO:     reference_download_start request_id=scene_image_1_initial index=2 reference_id=adult_son host=drive.google.com
+INFO:     reference_download_response request_id=scene_image_1_initial reference_id=adult_son status=200 final_host=drive.usercontent.google.com content_type=image/png bytes=1592913
+INFO:     reference_download_ready request_id=scene_image_1_initial reference_id=adult_son local_file=02_adult_son.png bytes=1592913
+INFO:     image_references_ready request_id=scene_image_1_initial count=2 files=01_70_year_old_mother.png,02_adult_son.png
+INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=7562 stage=Reference images ready error=none error_message=none
+INFO:     image_codex_launch request_id=scene_image_1_initial exe=codex.exe model=gpt-5.6-luna reference_count=2 stdin_prompt_bytes=1760 sandbox=read-only web_search=disabled
+INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=7562 stage=Launching Codex error=none error_message=none
+INFO:     image_codex_process_started request_id=scene_image_1_initial pid=3044
+INFO:     image_codex_stdin_sent request_id=scene_image_1_initial bytes=1760
+INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=8234 stage=Codex session started error=none error_message=none
+INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=8266 stage=Codex is working error=none error_message=none
+INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=124812 stage=Finalizing response error=none error_message=none
+INFO:     image_codex_exit request_id=scene_image_1_initial exit_code=0 stdout_bytes=930 stderr_bytes=244 events=thread.started,turn.started,item.completed,turn.completed stdin_error=none
+WARNING:  image_codex_stderr request_id=scene_image_1_initial diagnostic=stderr=Reading prompt from stdin... 2026-09-19T07:47:36.074488Z ERROR codex_core::tools::router: error=unable to read referenced image at `C:\pinokio\cache\TMPDIR\codex-image-gateway-q9wfkh8r\01_70_year_old_mother.png`: Access is denied. (os error 5)
+INFO:     image_codex_thread request_id=scene_image_1_initial thread_id=01a0b8a2-4aa3-7bc1-9723-dcbae5c3b85b
+INFO:     image_output_scan request_id=scene_image_1_initial directory_exists=True candidate_count=1 files=exec-5242a8e1-a685-4a21-a8ad-60b81c61b9cc.png
+INFO:     image_output_ready request_id=scene_image_1_initial file=exec-5242a8e1-a685-4a21-a8ad-60b81c61b9cc.png bytes=1968550 mime_type=image/png
+INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=126094 stage=Codex completed error=none error_message=none
+INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=126172 stage=Artifact ready error=none error_message=none
+INFO:     job_completed request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=126187 stage=Image ready error=none error_message=none
+INFO:     image_request_completed request_id=scene_image_1_initial duration_ms=126187 mime_type=image/png output_file=art_4e5fcaa11f814e119ff2d607bff91165.png
+INFO:     image_request_released request_id=scene_image_1_initial pending=0
+INFO:     image_request_received request_id=scene_image_2_initial model=gpt-5.6-luna reference_count=1 prompt_chars=1287 timeout_seconds=600
+INFO:     job_queued request_id=scene_image_2_initial task=image model=gpt-5.6-luna
+INFO:     image_request_accepted request_id=scene_image_2_initial pending=1 max_concurrency=1 max_queue=4
+INFO:     image_worker_acquired request_id=scene_image_2_initial queue_wait_ms=15
+INFO:     job_running request_id=scene_image_2_initial task=image model=gpt-5.6-luna duration_ms=15 stage=Worker acquired error=none error_message=none
+INFO:     image_run_start request_id=scene_image_2_initial model=gpt-5.6-luna reference_count=1 prompt_chars=1287 timeout_seconds=599.98
+INFO:     job_running request_id=scene_image_2_initial task=image model=gpt-5.6-luna duration_ms=15 stage=Downloading reference image 1/1 error=none error_message=none
+INFO:     reference_download_start request_id=scene_image_2_initial index=1 reference_id=70_year_old_mother host=drive.google.com
+INFO:     reference_download_response request_id=scene_image_2_initial reference_id=70_year_old_mother status=200 final_host=drive.usercontent.google.com content_type=image/png bytes=1737810
+INFO:     reference_download_ready request_id=scene_image_2_initial reference_id=70_year_old_mother local_file=01_70_year_old_mother.png bytes=1737810
+INFO:     image_references_ready request_id=scene_image_2_initial count=1 files=01_70_year_old_mother.png
+INFO:     job_running request_id=scene_image_2_initial task=image model=gpt-5.6-luna duration_ms=2781 stage=Reference images ready error=none error_message=none
+INFO:     image_codex_launch request_id=scene_image_2_initial exe=codex.exe model=gpt-5.6-luna reference_count=1 stdin_prompt_bytes=1680 sandbox=read-only web_search=disabled
+INFO:     job_running request_id=scene_image_2_initial task=image model=gpt-5.6-luna duration_ms=2797 stage=Launching Codex error=none error_message=none
+INFO:     image_codex_process_started request_id=scene_image_2_initial pid=29112
+INFO:     image_codex_stdin_sent request_id=scene_image_2_initial bytes=1680
+INFO:     job_running request_id=scene_image_2_initial task=image model=gpt-5.6-luna duration_ms=3468 stage=Codex session started error=none error_message=none
+INFO:     job_running request_id=scene_image_2_initial task=image model=gpt-5.6-luna duration_ms=3484 stage=Codex is working error=none error_message=none
+INFO:     job_running request_id=scene_image_2_initial task=image model=gpt-5.6-luna duration_ms=57937 stage=Finalizing response error=none error_message=none
+INFO:     image_codex_exit request_id=scene_image_2_initial exit_code=0 stdout_bytes=711 stderr_bytes=29 events=thread.started,turn.started,item.completed,turn.completed stdin_error=none
+WARNING:  image_codex_stderr request_id=scene_image_2_initial diagnostic=stderr=Reading prompt from stdin...
+INFO:     image_codex_thread request_id=scene_image_2_initial thread_id=01a0b8a4-6d53-7ca2-9ccb-036c6d2e978f
+INFO:     image_output_scan request_id=scene_image_2_initial directory_exists=True candidate_count=1 files=exec-bc26204c-21d7-4a27-8a59-e45b84715cee.png
+INFO:     image_output_ready request_id=scene_image_2_initial file=exec-bc26204c-21d7-4a27-8a59-e45b84715cee.png bytes=2002606 mime_type=image/png
+INFO:     job_running request_id=scene_image_2_initial task=image model=gpt-5.6-luna duration_ms=61031 stage=Codex completed error=none error_message=none
+INFO:     job_running request_id=scene_image_2_initial task=image model=gpt-5.6-luna duration_ms=61109 stage=Artifact ready error=none error_message=none
+INFO:     job_completed request_id=scene_image_2_initial task=image model=gpt-5.6-luna duration_ms=61109 stage=Image ready error=none error_message=none
+INFO:     image_request_completed request_id=scene_image_2_initial duration_ms=61109 mime_type=image/png output_file=art_96e47d58c48b41c689b630370c200efb.png
+INFO:     image_request_released request_id=scene_image_2_initial pending=0

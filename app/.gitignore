@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+.env
+.gateway-token
+*.log
+
+.gateway-settings.json
+.gateway-data/

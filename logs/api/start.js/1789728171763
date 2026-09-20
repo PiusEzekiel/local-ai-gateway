@@ -1,0 +1,20 @@
+[api shell.run]
+Microsoft Windows [Version 10.0.26200.9457]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\pinokio\api\local-ai-gateway\app>conda_hook & conda deactivate & conda deactivate & conda deactivate & conda activate base & C:\pinokio\api\local-ai-gateway\app\.venv\Scripts\activate C:\pinokio\api\local-ai-gateway\app\.venv && powershell -NoProfile -ExecutionPolicy Bypass -File run.ps1 -Bind 0.0.0.0 -Port 8080
+Use .\show-token.ps1 in another PowerShell window to copy the token into n8n.
+Gateway UI: http://127.0.0.1:8080
+INFO:     Started server process [51096]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)
+INFO:     image_complete request_id=approved_image_smoke_1 duration_ms=37531
+INFO:     job_complete request_id=09ea9f00-b020-4bd5-87d1-b9889d3c7e54 task=generate duration_ms=16922
+INFO:     job_complete request_id=0c18cb5e-3936-437a-8222-00c7b9a15dcf task=generate duration_ms=31859
+INFO:     job_complete request_id=a79cae4c-0986-49d2-ab9f-b505f4279914 task=generate duration_ms=16016
+INFO:     job_complete request_id=fdc7c67b-260d-4523-8027-04b751cda651 task=generate duration_ms=17266
+WARNING:  Codex job failed: kind=codex_failed exit=1
+WARNING:  job_error request_id=n8n_scene_1 task=generate type=codex_failed
+WARNING:  Codex job failed: kind=codex_failed exit=1
+WARNING:  job_error request_id=n8n_scene_1 task=generate type=codex_failed

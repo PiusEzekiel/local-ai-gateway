@@ -1,0 +1,12 @@
+[api shell.run]
+Microsoft Windows [Version 10.0.26200.9457]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\pinokio\api\local-ai-gateway\app>conda_hook & conda deactivate & conda deactivate & conda deactivate & conda activate base & C:\pinokio\api\local-ai-gateway\app\.venv\Scripts\activate C:\pinokio\api\local-ai-gateway\app\.venv && powershell -NoProfile -ExecutionPolicy Bypass -File run.ps1 -Bind 0.0.0.0 -Port 8080
+Use .\show-token.ps1 in another PowerShell window to copy the token into n8n.
+Gateway UI: http://127.0.0.1:8080
+INFO:     Started server process [47012]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)
+INFO:     settings_updated keys=max_artifact_storage_mb pending_restart=True

@@ -1,0 +1,5 @@
+{
+  "title": "Local AI Gateway",
+  "description": "Codex text, JSON chat, and web research for a selected n8n workflow.",
+  "platform": "win32"
+}

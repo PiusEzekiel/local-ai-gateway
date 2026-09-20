@@ -1,0 +1,82 @@
+/* -------------------------------------------------------------------------
+   MODULE 6D — DIAGNOSTICS
+   Uses the existing palette, spacing, surface and typography primitives.
+   The failure feed and timeline scroll independently to avoid page bloat.
+   ------------------------------------------------------------------------- */
+.diag-heading-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.diag-range-toolbar{flex-wrap:wrap}
+.diag-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px}
+.diag-summary-card{padding:16px 18px;min-width:0;border-right:1px solid var(--line-soft)}
+.diag-summary-card:last-child{border-right:0}
+.diag-summary-card>span,.diag-summary-card>small{display:block;color:var(--quiet);font-size:10px}
+.diag-summary-card>span{text-transform:uppercase;letter-spacing:.07em;font-size:9px}
+.diag-summary-card>strong{display:block;margin:8px 0 6px;font-size:24px;overflow-wrap:anywhere}
+.diag-summary-category>strong{font-size:13px;line-height:1.5;margin:13px 0 10px;color:var(--red)}
+.diagnostics-layout{display:grid;grid-template-columns:minmax(370px,1.12fr) minmax(320px,.88fr);gap:14px;align-items:start}
+.diagnostics-browser{overflow:hidden}
+.diag-result-count{font-size:10px;color:var(--quiet);white-space:nowrap}
+.diag-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:14px;border-bottom:1px solid var(--line-soft);align-items:center}
+.diag-filters input,.diag-filters select{width:100%;font-size:11px}
+.diag-filters .diag-clear{padding:8px 4px;white-space:nowrap}
+.diag-filter-note{font-size:10px;color:var(--quiet);margin:0;padding:10px 14px;border-bottom:1px solid var(--line-soft)}
+.diag-feed{height:min(65vh,690px);min-height:380px;overflow-y:auto;scrollbar-color:#353b46 transparent;overscroll-behavior:contain}
+.diag-failure{width:100%;display:block;text-align:left;border:0;border-bottom:1px solid var(--line-soft);background:transparent;padding:14px 17px;cursor:pointer;min-width:0}
+.diag-failure:hover,.diag-failure.selected{background:var(--panel-2)}
+.diag-failure.selected{box-shadow:inset 3px 0 var(--blue)}
+.diag-failure-heading,.diag-failure-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.diag-failure-task{font-size:9px;font-weight:750;color:var(--red);letter-spacing:.1em}
+.diag-failure-time{font-size:9px;color:var(--quiet)}
+.diag-failure-name{display:block;font-size:12px;margin:7px 0 5px;overflow-wrap:anywhere}
+.diag-failure-error{display:block;font-size:10px;color:var(--red);overflow-wrap:anywhere}
+.diag-failure-message{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:10px;color:var(--muted);line-height:1.65;margin:7px 0;overflow-wrap:anywhere}
+.diag-failure-foot{justify-content:flex-start;column-gap:14px;font-size:9px;color:var(--quiet)}
+.diag-browser-footer{min-height:1px}
+.diag-browser-footer .load-more{display:block}
+.diag-browser-footer .load-more[hidden]{display:none}
+.diag-browser-footer .load-more:disabled{opacity:.6;cursor:wait}
+.diag-inspector{min-width:0;max-height:calc(100vh - 125px);min-height:450px;overflow-y:auto;position:sticky;top:18px;overscroll-behavior:contain;scrollbar-color:#353b46 transparent}
+.diag-inspector-head{padding:19px 20px;border-bottom:1px solid var(--line-soft)}
+.diag-inspector-head h2{font-size:17px;line-height:1.35;margin:8px 0;overflow-wrap:anywhere}
+.diag-error-badge{display:inline-flex;max-width:100%;overflow-wrap:anywhere;border:1px solid #63313a;background:#231519;color:#f3a5ad;border-radius:6px;font-size:10px;padding:5px 8px}
+.diag-detail-section{padding:17px 20px;border-bottom:1px solid var(--line-soft);min-width:0}
+.diag-detail-section:last-child{border-bottom:0}
+.diag-detail-section h3{font-size:11px;margin:0 0 14px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.diag-error-description{font-size:12px;color:var(--red);line-height:1.6;overflow-wrap:anywhere;margin:0 0 15px}
+.diag-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 15px}
+.diag-detail-line{min-width:0}.diag-detail-line>span,.diag-detail-line>strong{display:block;overflow-wrap:anywhere}
+.diag-detail-line>span{font-size:9px;color:var(--quiet);margin-bottom:5px}
+.diag-detail-line>strong{font-size:11px;font-weight:650;line-height:1.55}
+.diag-preview{white-space:pre-wrap;overflow-wrap:anywhere;background:#0c0f14;border:1px solid var(--line);padding:14px;border-radius:7px;color:#d6dce8;font-size:11px;line-height:1.6;max-height:240px;overflow-y:auto;margin:0;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+.diag-timeline{max-height:280px;overflow-y:auto;scrollbar-color:#353b46 transparent;padding-right:5px}
+.diag-timeline-row{display:grid;grid-template-columns:58px 9px minmax(0,1fr);gap:10px;align-items:start;padding:9px 0;font-size:10px;color:var(--muted);line-height:1.6}
+.diag-timeline-row+.diag-timeline-row{border-top:1px solid var(--line-soft)}
+.diag-event-clock{font-variant-numeric:tabular-nums;color:var(--quiet);font-size:9px}
+.diag-event-marker{height:7px;width:7px;border-radius:50%;margin-top:5px;background:var(--blue)}
+.diag-timeline-row.error .diag-event-marker{background:var(--red)}
+.diag-timeline-row.warning .diag-event-marker{background:var(--amber)}
+.diag-timeline-row.error{color:var(--red)}
+.diag-reference-strip{display:flex;gap:10px;overflow-x:auto;padding-bottom:5px}
+.diag-reference-card{flex:0 0 95px;min-width:0;font-size:9px;color:var(--muted);overflow-wrap:anywhere}
+.diag-reference-card img,.diag-reference-missing{height:72px;width:95px;object-fit:cover;border:1px solid var(--line);background:#0c0f14;border-radius:6px;display:grid;place-items:center;font-size:9px;color:var(--quiet)}
+.diag-reference-card>span{display:block;margin-top:6px}
+.diag-muted{color:var(--quiet);font-size:10px;line-height:1.6;margin:0 0 13px}
+.diag-copy{width:auto;padding:9px 13px;font-size:11px;margin-bottom:7px}
+.diag-copy:disabled{opacity:.55;cursor:wait}
+.diag-copy-status{min-height:17px;color:var(--green);font-size:10px;margin:4px 0 7px}
+.diag-bundle{width:100%;min-height:130px;resize:vertical;background:#0c0f14;border:1px solid var(--line);border-radius:7px;padding:11px;color:var(--muted);font:10px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
+.diag-detail-error{padding:22px;color:var(--red);font-size:11px;line-height:1.6}
+.failure-item{display:block;width:100%;text-align:left;background:transparent;border-top:0;border-right:0;border-left:0;cursor:pointer}
+.failure-item:hover{background:var(--panel-2)}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+@media(max-width:1260px){.diag-filters{grid-template-columns:repeat(4,minmax(0,1fr))}.diag-filters input{grid-column:1/-1}.diag-filters .diag-clear{justify-self:start}.diag-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.diag-summary-card:nth-child(2){border-right:0}.diag-summary-card:nth-child(-n+2){border-bottom:1px solid var(--line-soft)}}
+@media(max-width:1050px){.diagnostics-layout{grid-template-columns:1fr}.diag-inspector{position:static;max-height:none;min-height:220px;overflow:visible}.diag-feed{height:450px;min-height:300px}}
+@media(max-width:650px){.diag-heading-actions{justify-content:flex-start}.diag-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.diag-filters input{grid-column:1/-1}.diag-filters .diag-clear{grid-column:1/-1;min-height:34px}.diag-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.diag-summary-card{padding:12px}.diag-summary-card>strong{font-size:20px}.diag-summary-category>strong{font-size:12px}.diag-detail-grid{grid-template-columns:1fr 1fr}.diag-feed{height:380px;min-height:280px}.diag-failure{padding:13px}.diag-inspector-head,.diag-detail-section{padding:14px}}
+@media(prefers-reduced-motion:reduce){.diag-failure,.diag-failure:hover{transition:none}}
+
+/* Universal hidden fallback for module-owned content. */
+.diagnostics-page [hidden]{display:none!important}
+
+/* 7D: keep all failure facets usable inside the half-width investigation pane. */
+.diag-filters input{grid-column:1/-1}
+.diag-filters .diag-clear{grid-column:1/-1;justify-self:start}
+.diag-filters select{min-width:0;max-width:100%}

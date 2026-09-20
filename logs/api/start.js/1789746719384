@@ -1,0 +1,67 @@
+[api shell.run]
+Microsoft Windows [Version 10.0.26200.9457]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\pinokio\api\local-ai-gateway\app>conda_hook & conda deactivate & conda deactivate & conda deactivate & conda activate base & C:\pinokio\api\local-ai-gateway\app\.venv\Scripts\activate C:\pinokio\api\local-ai-gateway\app\.venv && powershell -NoProfile -ExecutionPolicy Bypass -File run.ps1 -Bind 0.0.0.0 -Port 8080
+Use .\show-token.ps1 in another PowerShell window to copy the token into n8n.
+Gateway UI: http://127.0.0.1:8080
+INFO:     Started server process [57908]
+na duration_ms=0 stage=Codex generating response error=none
+INFO:     job_running request_id=6be70e98-cfd9-489f-8964-5ab9fcd009dd task=generate model=gpt-5.6-luna duration_ms=688 stage=Codex session started error=none
+INFO:     job_running request_id=6be70e98-cfd9-489f-8964-5ab9fcd009dd task=generate model=gpt-5.6-luna duration_ms=703 stage=Codex is working error=none
+INFO:     job_running request_id=6be70e98-cfd9-489f-8964-5ab9fcd009dd task=generate model=gpt-5.6-luna duration_ms=20641 stage=Finalizing response error=none
+INFO:     job_completed request_id=6be70e98-cfd9-489f-8964-5ab9fcd009dd task=generate model=gpt-5.6-luna duration_ms=23094 stage=Response ready error=none
+INFO:     job_queued request_id=6f420c2c-c36c-4825-8104-d68c0aee5330 task=generate model=gpt-5.6-luna
+INFO:     job_running request_id=6f420c2c-c36c-4825-8104-d68c0aee5330 task=generate model=gpt-5.6-luna duration_ms=0 stage=Codex generating response error=none
+INFO:     job_running request_id=6f420c2c-c36c-4825-8104-d68c0aee5330 task=generate model=gpt-5.6-luna duration_ms=750 stage=Codex session started error=none
+INFO:     job_completed request_id=6f420c2c-c36c-4825-8104-d68c0aee5330 task=generate model=gpt-5.6-luna duration_ms=23812 stage=Response ready error=none
+INFO:     job_queued request_id=f1229585-3961-442c-910c-7bc1c28d7fd7 task=generate model=gpt-5.6-luna
+INFO:     job_running request_id=f1229585-3961-442c-910c-7bc1c28d7fd7 task=generate model=gpt-5.6-luna duration_ms=0 stage=Codex generating response error=none
+INFO:     job_running request_id=f1229585-3961-442c-910c-7bc1c28d7fd7 task=generate model=gpt-5.6-luna duration_ms=657 stage=Codex session started error=none
+INFO:     job_running request_id=f1229585-3961-442c-910c-7bc1c28d7fd7 task=generate model=gpt-5.6-luna duration_ms=688 stage=Codex is working error=none
+INFO:     job_running request_id=f1229585-3961-442c-910c-7bc1c28d7fd7 task=generate model=gpt-5.6-luna duration_ms=13172 stage=Finalizing response error=none
+INFO:     job_completed request_id=f1229585-3961-442c-910c-7bc1c28d7fd7 task=generate model=gpt-5.6-luna duration_ms=15735 stage=Response ready error=none
+INFO:     job_queued request_id=f1013280-03a0-4ee4-9e43-d0efc88bf23f task=generate model=gpt-5.6-luna
+INFO:     job_running request_id=f1013280-03a0-4ee4-9e43-d0efc88bf23f task=generate model=gpt-5.6-luna duration_ms=0 stage=Codex generating response error=none
+INFO:     job_running request_id=f1013280-03a0-4ee4-9e43-d0efc88bf23f task=generate model=gpt-5.6-luna duration_ms=906 stage=Codex session started error=none
+INFO:     job_running request_id=f1013280-03a0-4ee4-9e43-d0efc88bf23f task=generate model=gpt-5.6-luna duration_ms=921 stage=Codex is working error=none
+INFO:     job_running request_id=f1013280-03a0-4ee4-9e43-d0efc88bf23f task=generate model=gpt-5.6-luna duration_ms=21125 stage=Finalizing response error=none
+INFO:     job_completed request_id=f1013280-03a0-4ee4-9e43-d0efc88bf23f task=generate model=gpt-5.6-luna duration_ms=23531 stage=Response ready error=none
+INFO:     job_queued request_id=1da69961-662a-44f1-a150-e8c8e2e13cca task=generate model=gpt-5.6-luna
+INFO:     job_running request_id=1da69961-662a-44f1-a150-e8c8e2e13cca task=generate model=gpt-5.6-luna duration_ms=0 stage=Codex generating response error=none
+INFO:     job_running request_id=1da69961-662a-44f1-a150-e8c8e2e13cca task=generate model=gpt-5.6-luna duration_ms=844 stage=Codex session started error=none
+INFO:     job_running request_id=1da69961-662a-44f1-a150-e8c8e2e13cca task=generate model=gpt-5.6-luna duration_ms=859 stage=Codex is working error=none
+INFO:     job_running request_id=1da69961-662a-44f1-a150-e8c8e2e13cca task=generate model=gpt-5.6-luna duration_ms=12250 stage=Finalizing response error=none
+INFO:     job_completed request_id=1da69961-662a-44f1-a150-e8c8e2e13cca task=generate model=gpt-5.6-luna duration_ms=14234 stage=Response ready error=none
+INFO:     job_queued request_id=asset_image_natalie_whitaker_attempt task=image model=gpt-5.6-luna
+INFO:     job_running request_id=asset_image_natalie_whitaker_attempt task=image model=gpt-5.6-luna duration_ms=0 stage=Generating image error=none
+INFO:     job_running request_id=asset_image_natalie_whitaker_attempt task=image model=gpt-5.6-luna duration_ms=844 stage=Codex session started error=none
+INFO:     job_running request_id=asset_image_natalie_whitaker_attempt task=image model=gpt-5.6-luna duration_ms=859 stage=Codex is working error=none
+INFO:     job_running request_id=asset_image_natalie_whitaker_attempt task=image model=gpt-5.6-luna duration_ms=38484 stage=Finalizing response error=none
+INFO:     job_completed request_id=asset_image_natalie_whitaker_attempt task=image model=gpt-5.6-luna duration_ms=41688 stage=Image ready error=none
+INFO:     job_queued request_id=asset_image_savannah_whitaker_attempt task=image model=gpt-5.6-luna
+INFO:     job_running request_id=asset_image_savannah_whitaker_attempt task=image model=gpt-5.6-luna duration_ms=0 stage=Generating image error=none
+INFO:     job_running request_id=asset_image_savannah_whitaker_attempt task=image model=gpt-5.6-luna duration_ms=609 stage=Codex session started error=none
+INFO:     job_running request_id=asset_image_savannah_whitaker_attempt task=image model=gpt-5.6-luna duration_ms=625 stage=Codex is working error=none
+INFO:     job_running request_id=asset_image_savannah_whitaker_attempt task=image model=gpt-5.6-luna duration_ms=30938 stage=Finalizing response error=none
+INFO:     job_completed request_id=asset_image_savannah_whitaker_attempt task=image model=gpt-5.6-luna duration_ms=33406 stage=Image ready error=none
+INFO:     job_queued request_id=asset_image_savannah_whitaker_attempt_1 task=image model=gpt-5.6-luna
+INFO:     job_running request_id=asset_image_savannah_whitaker_attempt_1 task=image model=gpt-5.6-luna duration_ms=0 stage=Generating image error=none
+INFO:     job_running request_id=asset_image_savannah_whitaker_attempt_1 task=image model=gpt-5.6-luna duration_ms=1266 stage=Codex session started error=none
+INFO:     job_running request_id=asset_image_savannah_whitaker_attempt_1 task=image model=gpt-5.6-luna duration_ms=1328 stage=Codex is working error=none
+WARNING:  job_failed request_id=asset_image_savannah_whitaker_attempt_1 task=image model=gpt-5.6-luna duration_ms=4922 stage=Image generation failed error=rate_limit
+INFO:     job_queued request_id=asset_image_savannah_whitaker_retry_1 task=image model=gpt-5.6-luna
+INFO:     job_running request_id=asset_image_savannah_whitaker_retry_1 task=image model=gpt-5.6-luna duration_ms=0 stage=Generating image error=none
+INFO:     job_running request_id=asset_image_savannah_whitaker_retry_1 task=image model=gpt-5.6-luna duration_ms=485 stage=Codex session started error=none
+INFO:     job_running request_id=asset_image_savannah_whitaker_retry_1 task=image model=gpt-5.6-luna duration_ms=516 stage=Codex is working error=none
+WARNING:  job_failed request_id=asset_image_savannah_whitaker_retry_1 task=image model=gpt-5.6-luna duration_ms=4485 stage=Image generation failed error=rate_limit
+INFO:     job_queued request_id=n8n_scene_1 task=generate model=gpt-5.6-luna
+INFO:     job_running request_id=n8n_scene_1 task=generate model=gpt-5.6-luna duration_ms=15 stage=Codex generating response error=none
+INFO:     job_running request_id=n8n_scene_1 task=generate model=gpt-5.6-luna duration_ms=953 stage=Codex session started error=none
+INFO:     job_running request_id=n8n_scene_1 task=generate model=gpt-5.6-luna duration_ms=968 stage=Codex is working error=none
+WARNING:  Codex job failed: kind=rate_limit exit=1
+WARNING:  job_failed request_id=n8n_scene_1 task=generate model=gpt-5.6-luna duration_ms=4593 stage=Codex request failed error=rate_limit
+INFO:     default_model_changed model=gpt-5.6-sol
+INFO:     default_model_changed model=gpt-5.6-sol
+
+

@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local AI Gateway</title>
+  <link rel="stylesheet" href="/dashboard/assets/dashboard.css?v=8c-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/diagnostics.css?v=8c-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/settings.css?v=8c-20260920">
+  <link rel="stylesheet" href="/dashboard/assets/sync.css?v=8c-20260920">
+</head>
+<body>
+  <div class="auth-screen" id="authScreen">
+    <form class="auth-card" id="authForm">
+      <div class="brand-mark" aria-hidden="true">AI</div>
+      <p class="kicker">Local AI Gateway</p>
+      <h1>Connect to your control plane</h1>
+      <p class="muted">Enter the local bearer token. It stays in this browser tab.</p>
+      <label for="token">Gateway token</label>
+      <input id="token" type="password" autocomplete="off" required>
+      <p class="form-error" id="authError" role="alert"></p>
+      <button class="primary" type="submit">Connect</button>
+    </form>
+  </div>
+
+  <div class="app-shell" id="appShell" hidden>
+    <aside class="sidebar">
+      <div class="brand"><div class="brand-mark">AI</div><div><strong>Local AI</strong><span>Gateway</span></div></div>
+      <nav aria-label="Primary">
+        <button class="nav-item active" data-page="overview" aria-current="page"><span>Overview</span><kbd>1</kbd></button>
+        <button class="nav-item" data-page="jobs"><span>Jobs</span><kbd>2</kbd></button>
+        <button class="nav-item" data-page="gallery"><span>Gallery</span><kbd>3</kbd></button>
+        <button class="nav-item" data-page="usage"><span>Usage</span><kbd>4</kbd></button>
+        <button class="nav-item" data-page="performance"><span>Performance</span><kbd>5</kbd></button>
+        <button class="nav-item" data-page="diagnostics"><span>Diagnostics</span><kbd>6</kbd></button>
+        <button class="nav-item" data-page="settings"><span>Settings</span><kbd>7</kbd></button>
+      </nav>
+      <div class="sidebar-foot"><span class="status-dot" id="sideDot"></span><span id="sideStatus">Connecting</span></div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div class="health-item"><span class="status-dot" id="healthDot"></span><strong id="healthText">Checking</strong><button type="button" id="syncDetailsToggle" class="sync-toggle" aria-expanded="false" aria-controls="syncDetails" aria-label="Show live synchronization details"><span id="liveStatus" class="live-status" role="status" aria-live="polite" title="Dashboard updates use periodic snapshots until live events connect">Syncing</span><span class="sync-chevron" aria-hidden="true">⌄</span></button></div>
+        <div class="top-stat"><span>Model</span><strong id="topModel">—</strong></div>
+        <div class="top-stat"><span>Running</span><strong id="topRunning">—</strong></div>
+        <div class="top-stat"><span>Queued</span><strong id="topQueued">—</strong></div>
+        <div class="top-stat quota"><span>Quota</span><strong id="topQuota">Unavailable</strong></div>
+        <div class="top-stat"><span>Uptime</span><strong id="topUptime">—</strong></div>
+        <button class="icon-button" id="refreshButton" type="button" title="Refresh" aria-label="Refresh dashboard">↻</button>
+      </header>
+      <!-- Read-only connection inspector. No bearer token, prompt, local path or raw SSE payload. -->
+      <aside class="sync-panel" id="syncDetails" aria-label="Dashboard synchronization details" hidden>
+        <div class="sync-panel-heading"><div><p class="kicker">Transport diagnostics</p><h2>Dashboard sync</h2></div><button type="button" class="sync-close" id="syncDetailsClose" aria-label="Close sync details">×</button></div>
+        <p class="sync-description" id="syncDescription">Connecting to gateway…</p>
+        <dl class="sync-facts">
+          <div><dt>API snapshot</dt><dd id="syncLastSnapshot">Waiting for data</dd></div>
+          <div><dt>Live activity</dt><dd id="syncLastEvent">No events yet</dd></div>
+          <div><dt>Transport</dt><dd id="syncTransport">Connecting</dd></div>
+        </dl>
+        <button type="button" class="sync-now" id="syncNow">Refresh dashboard data ↻</button>
+        <p class="sync-privacy">Events contain metadata only. Gateway status and job details are verified through authenticated API snapshots.</p>
+      </aside>
+
+      <main>
+        <section class="page active" id="page-overview" aria-labelledby="overviewTitle">
+          <div class="page-heading"><div><p class="kicker">Mission control</p><h1 id="overviewTitle">Overview</h1></div><p class="updated" id="updatedAt">Waiting for data</p></div>
+          <div class="notice quota-notice unavailable" id="quotaNotice" aria-live="polite">
+            <div class="quota-notice-head"><div><strong id="quotaTitle">Quota telemetry unavailable</strong><span id="quotaSubtitle">Waiting for Codex app-server</span></div><span id="quotaObserved">Not observed</span></div>
+            <div class="quota-buckets" id="quotaBuckets"></div>
+          </div>
+          <div class="metric-grid">
+            <article class="metric"><span>Tasks today</span><strong id="metricJobs">—</strong><small id="metricJobsMeta">UTC day</small></article>
+            <article class="metric"><span>Success rate</span><strong id="metricSuccess">—</strong><small id="metricFailures">— failures</small></article>
+            <article class="metric"><span>Total tokens</span><strong id="metricTokens">—</strong><small>Completed jobs</small></article>
+            <article class="metric"><span>Average latency</span><strong id="metricAverage">—</strong><small id="metricP95">P95 —</small></article>
+            <article class="metric"><span>Codex compute</span><strong id="metricCompute">—</strong><small id="metricCumulative">Cumulative —</small></article>
+            <article class="metric"><span>Images</span><strong id="metricImages">—</strong><small>Completed today</small></article>
+          </div>
+          <div class="overview-grid">
+            <section class="surface recent-surface"><div class="section-head"><div><p class="kicker">Execution feed</p><h2>Recent jobs</h2></div><button class="text-button" data-go="jobs">View all</button></div><div class="job-feed" id="recentJobs"></div></section>
+            <div class="overview-side">
+              <section class="surface"><div class="section-head"><div><p class="kicker">Workers</p><h2>Live state</h2></div></div><div class="worker-line"><span>Active</span><strong id="workerActive">—</strong></div><div class="worker-line"><span>Capacity</span><strong id="workerCapacity">—</strong></div><div class="worker-line"><span>Queue</span><strong id="workerQueue">—</strong></div></section>
+              <section class="surface"><div class="section-head"><div><p class="kicker">Attention</p><h2>Recent failures</h2></div></div><div id="recentFailures" class="failure-list"></div></section>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" id="page-jobs" aria-labelledby="jobsTitle">
+          <div class="page-heading"><div><p class="kicker">Execution history</p><h1 id="jobsTitle">Jobs</h1></div></div>
+          <div class="jobs-layout">
+            <section class="surface jobs-browser">
+              <div class="job-tools"><input id="jobSearch" type="search" placeholder="Search request, task, model, error…" aria-label="Search jobs"><select id="jobStatus" aria-label="Filter job status"><option value="">All statuses</option><option>queued</option><option>running</option><option>completed</option><option>failed</option></select><select id="jobTask" aria-label="Filter task"><option value="">All tasks</option><option value="image">Images</option><option value="generate">Text</option><option value="research">Research</option></select></div>
+              <div class="job-feed full" id="allJobs"></div>
+              <button class="load-more" id="loadMore" type="button" hidden>Load more</button>
+            </section>
+            <aside class="surface inspector" id="jobInspector"><div class="empty-state"><strong>Select a job</strong><span>Inspect timing, token usage, errors, and every recorded stage.</span></div></aside>
+          </div>
+        </section>
+
+        <section class="page" id="page-gallery" aria-labelledby="galleryTitle">
+          <div class="page-heading"><div><p class="kicker">Generated media</p><h1 id="galleryTitle">Gallery</h1></div><p class="updated" id="galleryCount">—</p></div>
+          <section class="surface gallery-browser">
+            <div class="gallery-tools"><input id="gallerySearch" type="search" placeholder="Search scene or request…" aria-label="Search gallery"><div class="segmented" role="group" aria-label="Gallery filter"><button class="active" data-gallery-category="all">All</button><button data-gallery-category="scenes">Scenes</button><button data-gallery-category="assets">Assets</button><button data-gallery-category="failed">Failed</button><button data-gallery-category="retried">Retried</button></div></div>
+            <div class="gallery-grid" id="galleryGrid"></div>
+            <button class="load-more" id="galleryLoadMore" type="button" hidden>Load more</button>
+          </section>
+        </section>
+        <section class="page analytics-page" id="page-usage" aria-labelledby="usageTitle">
+          <div class="page-heading"><div><p class="kicker">Measured consumption</p><h1 id="usageTitle">Usage</h1></div><p class="updated" id="usageRangeLabel">Waiting for data</p></div>
+          <div class="analytics-toolbar" data-analytics-page="usage">
+            <div class="segmented analytics-ranges" role="group" aria-label="Usage time range"><button data-analytics-range="today">Today</button><button class="active" data-analytics-range="24h">24h</button><button data-analytics-range="7d">7d</button><button data-analytics-range="30d">30d</button><button data-analytics-range="custom">Custom</button></div>
+            <div class="custom-range" hidden><label>Start <input type="datetime-local" data-custom-start></label><label>End <input type="datetime-local" data-custom-end></label><button class="text-button" type="button" data-custom-apply>Apply</button></div>
+          </div>
+          <div class="analytics-error" id="usageError" role="alert" hidden></div>
+          <div class="analytics-metrics four"><article><span>Total tasks</span><strong id="usageTasks">—</strong></article><article><span>Successful</span><strong id="usageSuccessful">—</strong></article><article><span>Failed</span><strong id="usageFailed">—</strong></article><article><span>Retried</span><strong id="usageRetried">—</strong></article></div>
+          <div class="analytics-metrics five"><article><span>Input tokens</span><strong id="usageInput">—</strong></article><article><span>Cached input</span><strong id="usageCached">—</strong></article><article><span>Output tokens</span><strong id="usageOutput">—</strong></article><article><span>Reasoning</span><strong id="usageReasoning">—</strong></article><article><span>Total tokens</span><strong id="usageTotalTokens">—</strong></article></div>
+          <div class="analytics-metrics five"><article><span>Images generated</span><strong id="usageImages">—</strong></article><article><span>Research jobs</span><strong id="usageResearch">—</strong></article><article><span>Chat jobs</span><strong id="usageChat">—</strong></article><article><span>Structured jobs</span><strong id="usageStructured">—</strong></article><article><span>Text generation</span><strong id="usageGenerate">—</strong></article></div>
+          <div class="analytics-metrics seven time-metrics"><article><span>Cumulative task time</span><strong id="timeCumulative">—</strong><small>Sum across tasks</small></article><article><span>Wall-clock busy</span><strong id="timeBusy">—</strong><small>Overlaps merged</small></article><article><span>Codex compute</span><strong id="timeCodex">—</strong></article><article><span>Queue wait</span><strong id="timeQueue">—</strong></article><article><span>Reference downloads</span><strong id="timeReferences">—</strong></article><article><span>Artifact processing</span><strong id="timeArtifacts">—</strong></article><article><span>Gateway overhead</span><strong id="timeOverhead">—</strong></article></div>
+          <div class="chart-grid"><section class="surface chart-card"><div class="section-head"><div><p class="kicker">Throughput</p><h2>Jobs over time</h2></div></div><div class="chart" id="jobsChart"></div></section><section class="surface chart-card"><div class="section-head"><div><p class="kicker">Completed usage</p><h2>Tokens over time</h2></div></div><div class="chart" id="tokensChart"></div></section></div>
+          <section class="surface chart-card wide"><div class="section-head"><div><p class="kicker">Account limits</p><h2>Quota history</h2></div><span class="chart-note">Observed values only</span></div><div class="chart" id="quotaHistoryChart"></div><div class="quota-pacing" id="quotaPacing"></div></section>
+          <div class="chart-grid distributions"><section class="surface chart-card"><div class="section-head"><div><p class="kicker">Workload</p><h2>Task distribution</h2></div></div><div class="distribution" id="taskDistribution"></div></section><section class="surface chart-card"><div class="section-head"><div><p class="kicker">Routing</p><h2>Model distribution</h2></div></div><div class="distribution" id="modelDistribution"></div></section></div>
+        </section>
+        <section class="page analytics-page" id="page-performance" aria-labelledby="performanceTitle">
+          <div class="page-heading"><div><p class="kicker">Reliability and latency</p><h1 id="performanceTitle">Performance</h1></div><p class="updated" id="performanceRangeLabel">Waiting for data</p></div>
+          <div class="analytics-toolbar" data-analytics-page="performance">
+            <div class="segmented analytics-ranges" role="group" aria-label="Performance time range"><button data-analytics-range="today">Today</button><button class="active" data-analytics-range="24h">24h</button><button data-analytics-range="7d">7d</button><button data-analytics-range="30d">30d</button><button data-analytics-range="custom">Custom</button></div>
+            <div class="custom-range" hidden><label>Start <input type="datetime-local" data-custom-start></label><label>End <input type="datetime-local" data-custom-end></label><button class="text-button" type="button" data-custom-apply>Apply</button></div>
+          </div>
+          <div class="analytics-error" id="performanceError" role="alert" hidden></div>
+          <div class="analytics-metrics seven"><article><span>Success rate</span><strong id="perfSuccess">—</strong></article><article><span>Image success</span><strong id="perfImageSuccess">—</strong></article><article><span>Text success</span><strong id="perfTextSuccess">—</strong></article><article><span>Retries</span><strong id="perfRetries">—</strong></article><article><span>Rate limits</span><strong id="perfRateLimit">—</strong></article><article><span>Reference failures</span><strong id="perfReference">—</strong></article><article><span>Safety rewrites</span><strong id="perfSafety">—</strong></article></div>
+          <div class="latency-grid"><section class="surface latency-card"><div class="section-head"><div><p class="kicker">Image jobs</p><h2>Image latency</h2></div></div><div><span>Average</span><strong id="imageAverage">—</strong></div><div><span>P50</span><strong id="imageP50">—</strong></div><div><span>P95</span><strong id="imageP95">—</strong></div></section><section class="surface latency-card"><div class="section-head"><div><p class="kicker">Text and research</p><h2>Text latency</h2></div></div><div><span>Average</span><strong id="textAverage">—</strong></div><div><span>P50</span><strong id="textP50">—</strong></div><div><span>P95</span><strong id="textP95">—</strong></div></section></div>
+          <div class="performance-grid"><section class="surface model-table-card"><div class="section-head"><div><p class="kicker">Breakdown</p><h2>Performance by model</h2></div></div><div class="table-scroll"><table><thead><tr><th>Model</th><th>Jobs</th><th>Average</th><th>P95</th><th>Failures</th></tr></thead><tbody id="modelPerformanceBody"></tbody></table></div></section><section class="surface chart-card"><div class="section-head"><div><p class="kicker">Failures</p><h2>Error categories</h2></div></div><div class="distribution" id="errorDistribution"></div></section></div>
+        </section>
+        <section class="page diagnostics-page" id="page-diagnostics" aria-labelledby="diagnosticsTitle">
+          <div class="page-heading"><div><p class="kicker">Investigate · resolve · verify</p><h1 id="diagnosticsTitle">Diagnostics</h1></div><div class="diag-heading-actions"><span class="updated" id="diagUpdatedAt">Waiting for data</span><button class="text-button" id="diagRefresh" type="button">Refresh failures ↻</button></div></div>
+          <div class="analytics-toolbar diag-range-toolbar">
+            <div class="segmented" role="group" aria-label="Diagnostics time range">
+              <button type="button" data-diagnostic-range="today">Today</button>
+              <button type="button" data-diagnostic-range="24h">24h</button>
+              <button type="button" data-diagnostic-range="7d" class="active">7d</button>
+              <button type="button" data-diagnostic-range="30d">30d</button>
+              <button type="button" data-diagnostic-range="custom">Custom</button>
+            </div>
+            <div class="custom-range" id="diagCustomRange" hidden>
+              <label for="diagStart">Start <input id="diagStart" type="datetime-local"></label>
+              <label for="diagEnd">End <input id="diagEnd" type="datetime-local"></label>
+              <button class="text-button" id="diagApplyCustom" type="button">Apply range</button>
+            </div>
+          </div>
+          <div class="analytics-error" id="diagError" role="alert" hidden></div>
+          <div class="diag-summary" aria-label="Failure summary">
+            <article class="diag-summary-card"><span>Failures in selection</span><strong id="diagTotal">—</strong><small id="diagSummaryContext">Last 7 days</small></article>
+            <article class="diag-summary-card"><span>Image failures</span><strong id="diagImageCount">—</strong><small>Image-generation requests</small></article>
+            <article class="diag-summary-card"><span>Text &amp; research</span><strong id="diagTextCount">—</strong><small>Other requests</small></article>
+            <article class="diag-summary-card diag-summary-category"><span>Most frequent error</span><strong id="diagTopError">—</strong><small id="diagTopErrorCount">No error categories yet</small></article>
+          </div>
+          <div class="diagnostics-layout">
+            <section class="surface diagnostics-browser" aria-label="Failure history">
+              <div class="section-head"><div><p class="kicker">Failure history</p><h2>Investigations</h2></div><span class="diag-result-count" id="diagResultCount">—</span></div>
+              <div class="diag-filters">
+                <input id="diagSearch" autocomplete="off" type="search" maxlength="128" placeholder="Search request, error, CLI argument…" aria-label="Search diagnostics">
+                <select id="diagTask" autocomplete="off" aria-label="Filter diagnostic task"><option value="">All tasks</option><option value="image">Images</option><option value="generate">Text / chat</option><option value="research">Research</option></select>
+                <select id="diagOperation" autocomplete="off" aria-label="Filter operation"><option value="">All operations</option><option value="image">Image</option><option value="chat">Chat</option><option value="generate">Generate</option><option value="structured">Structured</option><option value="research">Research</option></select>
+                <select id="diagModel" autocomplete="off" aria-label="Filter model"><option value="">All models</option></select>
+                <select id="diagErrorType" autocomplete="off" aria-label="Filter error type"><option value="">All error types</option></select>
+                <button type="button" class="text-button diag-clear" id="diagClear">Clear filters</button>
+              </div>
+              <p class="diag-filter-note" id="diagFilterNote">Select a failure to inspect its timeline and diagnostics.</p>
+              <div class="diag-feed" id="diagFeed" aria-live="polite"><div class="empty-state">Open Diagnostics to load failures.</div></div>
+              <div class="diag-browser-footer"><button type="button" class="load-more" id="diagLoadMore" hidden>Load more failures</button></div>
+            </section>
+            <aside class="surface diag-inspector" id="diagInspector" aria-label="Failure inspector" aria-live="polite">
+              <div class="empty-state"><strong>Select a failure</strong><span>Inspect error details, execution stages, reference downloads and a copyable redacted bundle.</span></div>
+            </aside>
+          </div>
+        </section>
+        <section class="page settings-page" id="page-settings" aria-labelledby="settingsTitle">
+          <div class="page-heading settings-heading"><div><p class="kicker">Gateway control plane</p><h1 id="settingsTitle">Settings</h1><p class="updated">Changes to worker, quota and retention policies take effect on restart.</p></div><div class="settings-heading-actions"><button type="button" class="settings-button" id="settingsDiscard" disabled>Discard changes</button><button type="button" class="settings-button primary-action" id="settingsSave" disabled>Save settings</button></div></div>
+          <div id="settingsStatus" class="settings-status" role="status" aria-live="polite">Open Settings to load active configuration.</div>
+          <div id="settingsRestartNotice" class="settings-restart" hidden><div><strong>Restart required</strong><p>One or more saved settings differ from the running gateway. Restart through Pinokio after current n8n jobs finish to apply them.</p></div><button class="settings-button" type="button" id="settingsReload">Recheck settings</button></div>
+          <div class="settings-layout"><nav class="surface settings-nav" id="settingsTabs" aria-label="Settings sections"><button type="button" data-settings-section="model" class="active">Model</button><button type="button" data-settings-section="execution">Execution</button><button type="button" data-settings-section="timeouts">Timeouts</button><button type="button" data-settings-section="quota">Quota</button><button type="button" data-settings-section="privacy">Privacy</button><button type="button" data-settings-section="retention">Retention</button><button type="button" data-settings-section="storage">Storage</button><button type="button" data-settings-section="system">System</button></nav>
+            <div class="settings-work">
+              <form id="settingsForm" novalidate><div id="settingsGroups" class="settings-work"><section class="surface settings-section"><div class="section-head"><h2>Loading settings…</h2></div></section></div></form>
+              <section class="surface settings-section" id="settings-storage"><div class="section-head"><div><p class="kicker">Measured disk use</p><h2>Storage</h2><p>Preview uses active settings, not changes awaiting restart. Nothing is deleted by previewing.</p></div></div>
+                <div class="settings-storage-grid"><div class="settings-mini"><span>Artifact storage</span><strong id="storageUsed">—</strong><small id="storageLimit">Configured limit —</small></div><div class="settings-mini"><span>Registered data</span><strong id="storageRegistered">—</strong><small>Artifact files and thumbnails</small></div><div class="settings-mini"><span>Preview recovery</span><strong id="storageRecoverable">—</strong><small>Estimated artifact bytes</small></div></div>
+                <div class="settings-privacy-grid"><div class="settings-mini"><span>Expired jobs</span><strong id="storageJobs">—</strong></div><div class="settings-mini"><span>Eligible artifacts</span><strong id="storageArtifacts">—</strong></div><div class="settings-mini"><span>Old quota snapshots</span><strong id="storageQuota">—</strong></div></div>
+                <label class="settings-check"><input type="checkbox" id="settingsIncludeOrphans"> Include unregistered artifact files older than 24 hours</label>
+                <p id="storageNote" class="settings-muted">A preview is required before cleanup. Active and queued jobs are protected.</p>
+                <div class="settings-section-actions"><button class="settings-button" type="button" id="settingsPreview">Preview cleanup</button><button class="settings-button danger" type="button" id="settingsCleanup" disabled>Run cleanup…</button></div>
+              </section>
+              <section class="surface settings-section" id="settings-privacy-storage"><div class="section-head"><div><p class="kicker">Stored content</p><h2>Privacy storage</h2><p>Turning retention off prevents future saves after restart. Existing retained text is only removed by explicit purge.</p></div></div>
+                <div class="settings-privacy-grid"><div class="settings-mini"><span>Saved prompts</span><strong id="privacyPrompts">—</strong></div><div class="settings-mini"><span>Saved outputs</span><strong id="privacyOutputs">—</strong></div><div class="settings-mini"><span>Retained rows</span><strong id="privacyRows">—</strong></div></div>
+                <p class="settings-muted">Saved text is plaintext in your local SQLite database. A purge does not securely erase SQLite WAL copies, logs or temporary Codex files.</p>
+                <div class="settings-section-actions"><button class="settings-button danger" type="button" id="privacyPurgeText">Purge retained text…</button><button class="settings-button danger" type="button" id="privacyPurgeDiagnostics">Purge diagnostics…</button></div>
+              </section>
+              <section class="surface settings-section" id="settings-system"><div class="section-head"><div><p class="kicker">Local infrastructure</p><h2>System</h2><p>Read-only operational information. No host paths or credentials are exposed.</p></div><button class="settings-button" type="button" id="settingsSystemRefresh">Refresh</button></div><div class="settings-system-list" id="settingsSystemRows"><div><span>Status</span><strong>Waiting for data</strong></div></div></section>
+            </div>
+          </div>
+          <dialog class="settings-dialog" id="settingsCleanupDialog" aria-labelledby="settingsCleanupTitle"><h2 id="settingsCleanupTitle">Confirm permanent cleanup</h2><p id="settingsCleanupDescription">This removes eligible files and records according to active retention policies. Backup first. The preview may change before execution.</p><label for="settingsCleanupPhrase">Type <code>DELETE_EXPIRED_DATA</code> to proceed</label><input id="settingsCleanupPhrase" type="text" autocomplete="off" spellcheck="false"><p id="settingsCleanupError" role="alert"></p><div class="settings-dialog-actions"><button type="button" class="settings-button" id="settingsCleanupCancel">Cancel</button><button type="button" class="settings-button danger" id="settingsCleanupConfirm" disabled>Delete eligible data</button></div></dialog>
+          <dialog class="settings-dialog" id="settingsPurgeDialog" aria-labelledby="settingsPurgeTitle"><h2 id="settingsPurgeTitle">Purge retained data</h2><p id="settingsPurgeDescription">This deletes retained data and cannot be undone. It does not delete gateway logs or generated images.</p><label for="settingsPurgePhrase">Type <code>DELETE_RETAINED_DATA</code> to proceed</label><input id="settingsPurgePhrase" type="text" autocomplete="off" spellcheck="false"><p id="settingsPurgeError" role="alert"></p><div class="settings-dialog-actions"><button type="button" class="settings-button" id="settingsPurgeCancel">Cancel</button><button type="button" class="settings-button danger" id="settingsPurgeConfirm" disabled>Purge data</button></div></dialog>
+        </section>
+      </main>
+    </div>
+  </div>
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-labelledby="lightboxTitle" hidden>
+    <div class="lightbox-bar"><div><p class="kicker">Image preview</p><h2 id="lightboxTitle">Generated image</h2></div><div class="lightbox-actions"><button id="zoomOut" type="button" aria-label="Zoom out">−</button><button id="zoomFit" type="button">Fit</button><button id="zoomActual" type="button">100%</button><button id="zoomIn" type="button" aria-label="Zoom in">+</button><button id="closeLightbox" type="button" aria-label="Close image preview">×</button></div></div>
+    <div class="lightbox-stage" id="lightboxStage"><img id="lightboxImage" alt=""></div>
+    <button class="lightbox-nav previous" id="previousImage" aria-label="Previous image">‹</button><button class="lightbox-nav next" id="nextImage" aria-label="Next image">›</button>
+  </div>
+  <script type="module" src="/dashboard/assets/dashboard.js?v=8c-20260920"></script>
+</body>
+</html>

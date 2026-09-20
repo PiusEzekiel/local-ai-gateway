@@ -1,0 +1,22 @@
+/* 8C — compact, read-only, accessible connection inspector. Pure CSS; no image fonts. */
+.sync-toggle{display:inline-flex;align-items:center;gap:4px;border:0;padding:0;background:none;cursor:pointer;border-radius:7px;min-width:0}
+.sync-toggle .live-status{margin-left:3px}
+.sync-toggle:hover .live-status,.sync-toggle[aria-expanded="true"] .live-status{border-color:var(--blue)}
+.sync-chevron{font-size:13px;line-height:1;color:var(--muted);padding-right:2px}
+.live-status.stale{color:var(--amber);border-color:rgba(237,193,123,.35);background:rgba(237,193,123,.08)}
+.sync-panel{position:fixed;z-index:30;top:75px;left:clamp(14px,17vw,280px);width:min(360px,calc(100vw - 28px));max-height:calc(100dvh - 88px);overflow-y:auto;border:1px solid var(--line);border-radius:11px;background:var(--panel);box-shadow:0 14px 55px #000a;padding:18px;color:var(--text)}
+.sync-panel[hidden]{display:none!important}
+.sync-panel-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.sync-panel-heading .kicker{margin:0 0 7px}.sync-panel-heading h2{font-size:16px;margin:0}
+.sync-close{border:1px solid var(--line);border-radius:6px;background:var(--panel-2);width:29px;height:29px;cursor:pointer;font-size:20px;line-height:1}
+.sync-description{font-size:12px;line-height:1.6;color:var(--muted);margin:15px 0}
+.sync-facts{margin:0;border:1px solid var(--line-soft);border-radius:8px;overflow:hidden}
+.sync-facts>div{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 12px}
+.sync-facts>div+div{border-top:1px solid var(--line-soft)}
+.sync-facts dt{font-size:10px;color:var(--quiet)}
+.sync-facts dd{font-size:11px;text-align:right;font-variant-numeric:tabular-nums;margin:0;overflow-wrap:anywhere}
+.sync-now{display:block;width:100%;margin-top:15px;border:1px solid var(--line);background:var(--panel-2);border-radius:7px;padding:10px 12px;text-align:center;font-weight:650;font-size:11px;cursor:pointer}
+.sync-now:hover,.sync-close:hover{border-color:var(--blue)}
+.sync-privacy{color:var(--quiet);font-size:10px;line-height:1.6;margin:13px 0 0}
+@media(max-width:760px){.sync-panel{top:125px;left:14px}.sync-toggle .live-status{font-size:10px}.sync-chevron{font-size:12px}}
+@media(prefers-reduced-motion:reduce){.sync-toggle,.sync-now{transition:none}}
