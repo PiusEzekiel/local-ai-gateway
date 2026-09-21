@@ -1,4 +1,4 @@
-[api shell.run]
+[shell shell]
 Microsoft Windows [Version 10.0.26200.9457]
 (c) Microsoft Corporation. All rights reserved.
 
@@ -8,36 +8,7 @@ Gateway network mode: LAN | listening on 0.0.0.0:8080
 LAN mode: listens on all IPv4 interfaces. Windows Firewall/network controls determine who can connect.
 Keep TCP 8080 off your router port-forwarding rules; use a trusted Private network or TLS/VPN when needed.
 Gateway UI: http://127.0.0.1:8080
-INFO:     Started server process [9888]
+INFO:     Started server process [29044]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)
-INFO:     image_request_received request_id=scene_image_1_initial model=gpt-5.6-luna reference_count=2 prompt_chars=1367 timeout_seconds=600
-INFO:     job_queued request_id=scene_image_1_initial task=image model=gpt-5.6-luna
-INFO:     image_request_accepted request_id=scene_image_1_initial pending=1 max_concurrency=1 max_queue=6
-INFO:     image_worker_acquired request_id=scene_image_1_initial queue_wait_ms=0
-INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=0 stage=Worker acquired error=none error_message=none
-INFO:     image_run_start request_id=scene_image_1_initial model=gpt-5.6-luna reference_count=2 prompt_chars=1367 timeout_seconds=600.00
-INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=0 stage=Downloading reference image 1/2 error=none error_message=none
-INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=15 stage=Reference image 1 ready error=none error_message=none
-INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=234 stage=Downloading reference image 2/2 error=none error_message=none
-INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=234 stage=Reference image 2 ready error=none error_message=none
-INFO:     image_references_ready request_id=scene_image_1_initial count=2 files=ref_3079e77a9d51394f73690f0129cefda1f2d28853c56c8c6f330b40cc232c1e42.png,ref_1eabd0f2838dc41e3fae8d6ac0af439728cff55a3ed21805698085d927a79615.png
-INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=344 stage=Reference images ready error=none error_message=none
-INFO:     image_codex_launch request_id=scene_image_1_initial exe=codex.exe model=gpt-5.6-luna reference_count=2 stdin_prompt_bytes=1760 sandbox=read-only web_search=disabled
-INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=344 stage=Launching Codex error=none error_message=none
-INFO:     image_codex_process_started request_id=scene_image_1_initial pid=39764
-INFO:     image_codex_stdin_sent request_id=scene_image_1_initial bytes=1760
-INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=1250 stage=Codex session started error=none error_message=none
-INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=1265 stage=Codex is working error=none error_message=none
-INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=118937 stage=Finalizing response error=none error_message=none
-INFO:     image_codex_exit request_id=scene_image_1_initial exit_code=0 stdout_bytes=861 stderr_bytes=29 events=thread.started,turn.started,item.completed,turn.completed stdin_error=none
-WARNING:  image_codex_stderr request_id=scene_image_1_initial diagnostic=stderr=Reading prompt from stdin...
-INFO:     image_codex_thread request_id=scene_image_1_initial thread_id=01a0c0d6-6f34-7bd2-851c-e602e2c4eb58
-INFO:     image_output_scan request_id=scene_image_1_initial directory_exists=True candidate_count=1 files=exec-82b4031b-1b45-4b75-8b86-f296c3c05454.png
-INFO:     image_output_ready request_id=scene_image_1_initial file=exec-82b4031b-1b45-4b75-8b86-f296c3c05454.png bytes=1975271 mime_type=image/png
-INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=120344 stage=Codex completed error=none error_message=none
-INFO:     job_running request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=120422 stage=Artifact ready error=none error_message=none
-INFO:     job_completed request_id=scene_image_1_initial task=image model=gpt-5.6-luna duration_ms=120422 stage=Image ready error=none error_message=none
-INFO:     image_request_completed request_id=scene_image_1_initial duration_ms=120422 mime_type=image/png output_file=art_ff24bae325384f36b7c20ae01e0430ac.png
-INFO:     image_request_released request_id=scene_image_1_initial pending=0
