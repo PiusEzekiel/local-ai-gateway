@@ -6,7 +6,7 @@ const listeners = {};
 globalThis.document = {
   addEventListener(type, handler) { (listeners[type] ??= []).push(handler); },
 };
-const {ageLabel, createSyncStatus} = await import('../gateway/dashboard/sync_status.js?v=8c-20260920');
+const {ageLabel, createSyncStatus} = await import('../gateway/dashboard/sync_status.js?v=9c3-20260920');
 function element() {
   const attrs = new Map();
   const handlers = {};

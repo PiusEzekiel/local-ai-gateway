@@ -21,6 +21,7 @@ from .job_history import JobHistory
 from .job_store import JobStore
 from .settings_manager import SettingsManager
 from .live_events import LiveEventBus
+from .episode_sessions import EpisodeSessions
 
 LOG = logging.getLogger("uvicorn.error")
 
@@ -36,6 +37,7 @@ def create_generation_router(
     settings_manager: SettingsManager,
     selected_model: str,
     events: LiveEventBus | None = None,
+    sessions: EpisodeSessions | None = None,
 ) -> tuple[APIRouter, GenerationRuntime]:
     """Register the original /v1 paths with a single worker pool per app."""
     router = APIRouter()
@@ -52,6 +54,7 @@ def create_generation_router(
         slots=asyncio.Semaphore(settings.max_concurrency),
         counter_lock=asyncio.Lock(),
         events=events,
+        sessions=sessions,
     )
 
     @router.get("/v1/models", dependencies=[Depends(require_token)])

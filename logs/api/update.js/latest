@@ -3,7 +3,7 @@ Microsoft Windows [Version 10.0.26200.9457]
 (c) Microsoft Corporation. All rights reserved.
 
 C:\pinokio\api\local-ai-gateway\app>conda_hook & conda deactivate & conda deactivate & conda deactivate & conda activate base & C:\pinokio\api\local-ai-gateway\app\.venv\Scripts\activate C:\pinokio\api\local-ai-gateway\app\.venv && uv pip install --upgrade -r requirements.txt
-Resolved 19 packages in 1.86s
-Checked 19 packages in 1ms
+Resolved 20 packages in 1.88s
+Checked 20 packages in 1ms
 
 (.venv) (base) C:\pinokio\api\local-ai-gateway\app>

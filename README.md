@@ -21,6 +21,49 @@ If `AI_GATEWAY_DATA_DIR` is set, the SQLite database and managed artifacts are s
 
 The Codex CLI also maintains generated originals under `CODEX_HOME\generated_images\<thread-id>` (or the Codex default home if `CODEX_HOME` is unset). **The Gallery storage limit and gateway cleanup do not cover Codex's own originals.**
 
+### Reference-image cache
+
+The shared reference-image cache is disabled by default for backward
+compatibility. Enable it with `AI_GATEWAY_REFERENCE_CACHE=1`. Cached files are
+stored separately from Gallery artifacts under the gateway data directory and
+survive gateway restarts. The default freshness window is 24 hours and the
+default unused-entry retention is 7 days. The default bounded cache size is
+2048 MB. These can be changed with
+`AI_GATEWAY_REFERENCE_CACHE_TTL_SECONDS` and
+`AI_GATEWAY_REFERENCE_CACHE_RETENTION_DAYS` and
+`AI_GATEWAY_REFERENCE_CACHE_MAX_MB`.
+
+Cache lookup identity is the complete source URL, including signed query
+parameters. Request-local reference IDs are metadata only and never split
+identical URL sources. The gateway still validates HTTPS, host policy, DNS,
+redirects, image signatures, size, and local file integrity on every cache
+reuse. Entries older than the freshness window are downloaded again, so
+mutable provider content is not silently treated as immutable. Cache records
+are separate from
+`job_references`, Gallery retention, and Codex-generated originals.
+
+Freshness expiration and physical retention are separate policies. A
+revalidated unchanged image keeps its immutable local file and receives a new
+validation timestamp. An entry unused beyond the retention period becomes
+eligible for cleanup, while active leases are always protected. A cache-only
+sweep runs on the existing cleanup interval when the cache is enabled; it does
+not run Gallery cleanup. The Settings page also provides cache size/count
+metrics and confirmed actions to clear expired or all unused cache entries.
+Storage limits use deterministic least-recently-used eviction and may be
+temporarily exceeded while all over-limit entries are actively leased.
+
+The cache reduces repeated downloads and local duplication. It does not claim
+to reduce Codex model input tokens; each independent Codex execution still
+receives its image inputs.
+
+Cache leases are reference-counted within the gateway process. A request holds
+its leases until the complete image-run scope exits, including download,
+timeout, cancellation, subprocess failure, and artifact errors. Cache
+filesystem or database persistence failures fall back to the already validated
+request-local image; URL, DNS, redirect, size, and image-content failures
+remain hard failures. Multiple gateway processes do not coordinate leases, so
+shared multi-process deployment requires a later durable lease mechanism.
+
 ## Start, stop and sign in
 
 1. Start **Local AI Gateway** using its **Run** action in Pinokio. Do not start multiple application workers: the queue and live event bus belong to one gateway process.

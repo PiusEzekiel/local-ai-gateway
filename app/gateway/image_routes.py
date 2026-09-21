@@ -15,13 +15,32 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse
 
 from .contracts import GatewayError, ImageReference, ImageRequest, ImageRunResult
-from .generation_state import GenerationContext
+from .generation_state import GenerationContext, episode_turn
 
 LOG = logging.getLogger("uvicorn.error")
 
 
 def create_image_router(ctx: GenerationContext) -> APIRouter:
     router = APIRouter()
+
+    def undo_unregistered_artifact(artifact: dict[str, Any]) -> None:
+        """Best-effort compensation when SQLite registration/linking fails.
+
+        Never delete files if SQLite rollback fails: preserving an orphan with
+        a DB row is safer than knowingly creating a broken gallery URL.
+        """
+        if not ctx.artifact_store:
+            return
+        if ctx.job_store:
+            try:
+                ctx.job_store.rollback_artifact_record(artifact["id"])
+            except Exception:
+                LOG.exception("artifact_db_rollback_failed artifact_id=%s", artifact["id"])
+                return
+        try:
+            ctx.artifact_store.delete_for_retention(artifact)
+        except Exception:
+            LOG.exception("artifact_file_rollback_failed artifact_id=%s", artifact["id"])
 
     @router.post("/v1/images/generations", dependencies=[Depends(ctx.require_token)])
     async def image_generation(request: ImageRequest) -> FileResponse:
@@ -130,6 +149,7 @@ def create_image_router(ctx: GenerationContext) -> APIRouter:
                 ctx.history.reference_ready(job, index + 1)
                 if not ctx.artifact_store or not ctx.job_store:
                     return
+                artifact = None
                 try:
                     reference_mime = {
                         ".png": "image/png", ".jpg": "image/jpeg",
@@ -142,68 +162,102 @@ def create_image_router(ctx: GenerationContext) -> APIRouter:
                     ctx.job_store.save_artifact(artifact)
                     ctx.job_store.set_reference_artifact(job["id"], index + 1, artifact["id"])
                 except Exception:
+                    if artifact is not None:
+                        undo_unregistered_artifact(artifact)
                     LOG.exception(
                         "reference_artifact_persist_failed job_id=%s index=%s reference_id=%s",
                         job["id"], index + 1, reference.id or "none",
                     )
 
-            image_result = await ctx.runner.run_image(
-                prompt=request.prompt,
-                timeout_seconds=remaining,
-                reference_images=request.reference_images,
-                model=model,
-                request_id=request.request_id,
-                progress=image_progress,
-                reference_ready=persist_reference,
-            )
+            async with episode_turn(ctx, request.episode_title) as previous_thread:
+                remaining = timeout_seconds - (time.monotonic() - started)
+                if remaining <= 0:
+                    raise GatewayError("timeout", "Timed out waiting for the episode session.", 504)
+                session_args = ({"persistent": True, "session_id": previous_thread}
+                                if ctx.sessions and request.episode_title else {})
+                try:
+                    image_result = await ctx.runner.run_image(
+                        prompt=request.prompt,
+                        timeout_seconds=remaining,
+                        reference_images=request.reference_images,
+                        model=model,
+                        request_id=request.request_id,
+                        progress=image_progress,
+                        reference_ready=persist_reference,
+                        **session_args,
+                    )
+                except BaseException:
+                    if previous_thread and ctx.sessions and request.episode_title:
+                        ctx.sessions.mark_uncertain(request.episode_title)
+                    raise
+                if isinstance(image_result, tuple):
+                    image_result = ImageRunResult(image_result[0], image_result[1], None, None)
 
-            if isinstance(image_result, tuple):
-                image_result = ImageRunResult(image_result[0], image_result[1], None, None)
+                ctx.history.codex_completed(job)
+                ctx.history.usage(job, image_result.usage)
 
-            ctx.history.codex_completed(job)
-            ctx.history.usage(job, image_result.usage)
-
-            image_path = image_result.path
-            mime_type = image_result.mime_type
-            artifact_started = time.monotonic()
-            if ctx.artifact_store:
+                image_path = image_result.path
+                mime_type = image_result.mime_type
+                artifact_started = time.monotonic()
+                # The original image MUST be durable. Reference thumbnails remain
+                # optional, but never respond 200 from Codex's source path when the
+                # gallery store or the SQLite artifact registration is unavailable.
+                if not ctx.artifact_store or not ctx.job_store:
+                    raise GatewayError(
+                        "artifact_persist_failed",
+                        "Image was generated but durable storage is unavailable. Retry later.",
+                        503,
+                    )
+                artifact = None
                 try:
                     artifact = ctx.artifact_store.create(
                         job_id=job["id"], source=image_path, mime_type=mime_type,
                     )
-                    if ctx.job_store:
-                        ctx.job_store.save_artifact(artifact)
-                    image_path = Path(artifact["storage_path"])
-                    ctx.history.update(
-                        job, status="running", stage="Artifact ready",
-                        artifact_id=artifact["id"], artifact_ready_at=artifact["created_at"],
-                        artifact_processing_ms=round((time.monotonic() - artifact_started) * 1000),
-                    )
-                except Exception:
+                    ctx.job_store.save_artifact(artifact)
+                except Exception as exc:
                     LOG.exception("artifact_persist_failed job_id=%s", job["id"])
+                    if artifact is not None:
+                        undo_unregistered_artifact(artifact)
+                    raise GatewayError(
+                        "artifact_persist_failed",
+                        "Image was generated but could not be saved. Retry later.",
+                        503,
+                    ) from exc
+                image_path = Path(artifact["storage_path"])
+                # Commit the session only once the current image has been durably
+                # published. Keep the episode lock through publication, otherwise
+                # the next turn could reuse/overwrite a source file still in use.
+                if ctx.sessions and request.episode_title:
+                    ctx.sessions.record(request.episode_title, image_result.thread_id,
+                                        image_result.usage)
+                ctx.history.update(
+                    job, status="running", stage="Artifact ready",
+                    artifact_id=artifact["id"], artifact_ready_at=artifact["created_at"],
+                    artifact_processing_ms=round((time.monotonic() - artifact_started) * 1000),
+                )
 
-            ctx.history.update(
-                job,
-                status="completed",
-                stage="Image ready",
-            )
+                ctx.history.update(
+                    job,
+                    status="completed",
+                    stage="Image ready",
+                )
 
-            LOG.info(
-                "image_request_completed request_id=%s duration_ms=%s mime_type=%s output_file=%s",
-                request.request_id,
-                round((time.monotonic() - started) * 1000),
-                mime_type,
-                image_path.name,
-            )
+                LOG.info(
+                    "image_request_completed request_id=%s duration_ms=%s mime_type=%s output_file=%s",
+                    request.request_id,
+                    round((time.monotonic() - started) * 1000),
+                    mime_type,
+                    image_path.name,
+                )
 
-            return FileResponse(
-                image_path,
-                media_type=mime_type,
-                headers={
-                    "Cache-Control": "no-store",
-                    "X-Request-ID": request.request_id,
-                },
-            )
+                return FileResponse(
+                    image_path,
+                    media_type=mime_type,
+                    headers={
+                        "Cache-Control": "no-store",
+                        "X-Request-ID": request.request_id,
+                    },
+                )
 
         except GatewayError as error:
             ctx.history.update(

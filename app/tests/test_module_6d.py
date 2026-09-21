@@ -55,7 +55,7 @@ def test_diagnostics_client_calls_only_auth_client():
 def test_diagnostics_controller_imported_and_initialized():
     dashboard = (GATEWAY / "dashboard" / "dashboard.js").read_text(encoding="utf-8")
     diagnostics = (GATEWAY / "dashboard" / "diagnostics.js").read_text(encoding="utf-8")
-    assert 'from "./diagnostics.js?v=8c-20260920"' in dashboard
+    assert 'from "./diagnostics.js?v=9c3-20260920"' in dashboard
     assert 'initializeDiagnostics();' in dashboard
     assert 'loadDiagnostics({reset: true})' in dashboard
     assert 'inspectDiagnosticJob(failure.id)' in dashboard

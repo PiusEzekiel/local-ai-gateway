@@ -5,7 +5,10 @@ module.exports = {
     params: {
       path: "app",
       venv: ".venv",
-      message: "powershell -NoProfile -ExecutionPolicy Bypass -File run.ps1 -Bind 0.0.0.0 -Port 8080",
+      // LAN remains the explicit default for n8n on another computer.
+      // To opt into Windows-only access, change -Mode LAN to -Mode LocalOnly.
+      // The firewall is configured separately: this launcher never changes it.
+      message: "powershell -NoProfile -ExecutionPolicy Bypass -File run.ps1 -Mode LAN -Port 8080",
       on: [{
         event: "/(http:\\/\\/[0-9.:]+)/",
         done: true
@@ -22,4 +25,4 @@ module.exports = {
       uri: "{{local.url}}"
     }
   }]
-}
+};

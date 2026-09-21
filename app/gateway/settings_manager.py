@@ -20,7 +20,14 @@ import tempfile
 from threading import RLock
 from typing import Any, Mapping
 
-from .config import Settings
+from .config import (
+    Settings, QUOTA_POLL_MIN_SECONDS, QUOTA_POLL_MAX_SECONDS,
+    REFERENCE_CACHE_DEFAULT_TTL_SECONDS, REFERENCE_CACHE_DEFAULT_MAX_MB,
+    REFERENCE_CACHE_MIN_TTL_SECONDS, REFERENCE_CACHE_MAX_TTL_SECONDS,
+    REFERENCE_CACHE_DEFAULT_RETENTION_DAYS, REFERENCE_CACHE_MIN_RETENTION_DAYS,
+    REFERENCE_CACHE_MAX_RETENTION_DAYS,
+    REFERENCE_CACHE_MIN_MB, REFERENCE_CACHE_MAX_MB,
+)
 
 LOG = logging.getLogger("uvicorn.error")
 
@@ -47,11 +54,12 @@ FIELD_SPECS: dict[str, FieldSpec] = {
     "model": FieldSpec(str, "gpt-5.6-luna", False, env="AI_GATEWAY_MODEL", label="Default model", group="model"),
     "max_concurrency": FieldSpec(int, 1, True, 1, 16, "AI_GATEWAY_MAX_CONCURRENCY", label="Concurrent workers", group="execution"),
     "max_queue": FieldSpec(int, 4, True, 0, 128, "AI_GATEWAY_MAX_QUEUE", label="Maximum queued jobs", group="execution"),
+    "episode_sessions_enabled": FieldSpec(bool, False, True, env="AI_GATEWAY_EPISODE_SESSIONS", label="Persistent episode sessions", group="execution"),
     "default_timeout_seconds": FieldSpec(int, 120, True, 5, 300, "AI_GATEWAY_TIMEOUT_SECONDS", label="Default text / research timeout", group="timeouts"),
     "max_timeout_seconds": FieldSpec(int, 300, True, 5, 300, "AI_GATEWAY_MAX_TIMEOUT_SECONDS", label="Maximum text / research timeout", group="timeouts"),
     "image_timeout_seconds": FieldSpec(int, 600, True, 30, 900, "AI_GATEWAY_IMAGE_TIMEOUT_SECONDS", label="Default image timeout", group="timeouts"),
     "quota_monitor_enabled": FieldSpec(bool, True, True, env="AI_GATEWAY_QUOTA_MONITOR", label="Quota monitor", group="quota"),
-    "quota_poll_seconds": FieldSpec(int, 45, True, 15, 3600, "AI_GATEWAY_QUOTA_POLL_SECONDS", label="Quota refresh interval", group="quota"),
+    "quota_poll_seconds": FieldSpec(int, 45, True, QUOTA_POLL_MIN_SECONDS, QUOTA_POLL_MAX_SECONDS, "AI_GATEWAY_QUOTA_POLL_SECONDS", label="Quota refresh interval", group="quota"),
     "quota_warning_remaining_percent": FieldSpec(int, 20, True, 1, 100, "AI_GATEWAY_QUOTA_WARNING_PERCENT", label="Quota warning threshold", group="quota"),
     "quota_critical_remaining_percent": FieldSpec(int, 10, True, 0, 99, "AI_GATEWAY_QUOTA_CRITICAL_PERCENT", label="Quota critical threshold", group="quota"),
     # Opt-in for plaintext content. Never store prompt/output bodies by default.
@@ -64,6 +72,10 @@ FIELD_SPECS: dict[str, FieldSpec] = {
     "quota_snapshot_retention_days": FieldSpec(int, 30, True, 1, 3650, "AI_GATEWAY_QUOTA_RETENTION_DAYS", label="Quota snapshot retention (days)", group="retention"),
     "max_artifact_storage_mb": FieldSpec(int, 10240, True, 1, 1000000, "AI_GATEWAY_MAX_ARTIFACT_MB", label="Artifact storage limit (MB)", group="retention"),
     "cleanup_interval_hours": FieldSpec(int, 24, True, 1, 168, "AI_GATEWAY_CLEANUP_INTERVAL_HOURS", label="Automatic cleanup interval (hours)", group="retention"),
+    "reference_cache_enabled": FieldSpec(bool, False, True, env="AI_GATEWAY_REFERENCE_CACHE", label="Reference image cache", group="storage"),
+    "reference_cache_ttl_seconds": FieldSpec(int, REFERENCE_CACHE_DEFAULT_TTL_SECONDS, True, REFERENCE_CACHE_MIN_TTL_SECONDS, REFERENCE_CACHE_MAX_TTL_SECONDS, "AI_GATEWAY_REFERENCE_CACHE_TTL_SECONDS", choices=("3600", "21600", "43200", "86400", "259200", "604800"), label="Reference cache freshness", group="storage"),
+    "reference_cache_retention_days": FieldSpec(int, REFERENCE_CACHE_DEFAULT_RETENTION_DAYS, True, REFERENCE_CACHE_MIN_RETENTION_DAYS, REFERENCE_CACHE_MAX_RETENTION_DAYS, "AI_GATEWAY_REFERENCE_CACHE_RETENTION_DAYS", choices=("1", "3", "7", "14", "30"), label="Unused reference retention", group="storage"),
+    "reference_cache_max_mb": FieldSpec(int, REFERENCE_CACHE_DEFAULT_MAX_MB, True, REFERENCE_CACHE_MIN_MB, REFERENCE_CACHE_MAX_MB, "AI_GATEWAY_REFERENCE_CACHE_MAX_MB", choices=("256", "512", "1024", "2048", "4096", "8192"), label="Reference cache storage limit", group="storage"),
 }
 
 

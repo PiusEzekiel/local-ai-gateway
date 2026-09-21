@@ -5,7 +5,7 @@ import re
 
 ROOT = Path(__file__).resolve().parents[1] / 'gateway'
 UI = ROOT / 'dashboard'
-VERSION = '8c-20260920'
+VERSION = '9c3-20260920'
 
 
 class IDs(HTMLParser):

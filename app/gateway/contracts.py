@@ -14,6 +14,8 @@ class GenerateRequest(BaseModel):
 
     prompt: str = Field(min_length=1, max_length=80_000)
 
+    episode_title: str | None = Field(default=None, min_length=1, max_length=300)
+
     output_format: Literal["text", "json"] = "text"
 
     schema_id: str | None = None
@@ -44,6 +46,8 @@ class ChatCompletionRequest(BaseModel):
     model: str | None = Field(default=None, max_length=100)
 
     messages: list[ChatMessage] = Field(min_length=1, max_length=20)
+
+    episode_title: str | None = Field(default=None, min_length=1, max_length=300)
 
     response_format: ChatResponseFormat | None = None
 
@@ -91,6 +95,8 @@ class ImageRequest(BaseModel):
 
     prompt: str = Field(min_length=1, max_length=32_000)
 
+    episode_title: str | None = Field(default=None, min_length=1, max_length=300)
+
 
 
     # Keep the reference list deliberately small. Scene generation should pass only
@@ -131,6 +137,8 @@ class RunResult:
     usage: dict[str, Any] | None
 
     web_search_used: bool = False
+
+    thread_id: str | None = None
 
 
 @dataclass(frozen=True)

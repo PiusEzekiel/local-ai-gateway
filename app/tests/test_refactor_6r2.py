@@ -61,11 +61,17 @@ def test_router_exposes_exact_14_dashboard_methods(tmp_path):
             ("GET", "/dashboard/api/privacy/storage"),
             ("POST", "/dashboard/api/privacy/purge"),
             ("GET", "/dashboard/api/storage/preview"),
+            ("GET", "/dashboard/api/storage/health"),
+            ("GET", "/dashboard/api/storage/inventory"),
             ("POST", "/dashboard/api/storage/cleanup"),
+            ("GET", "/dashboard/api/reference-cache"),
+            ("POST", "/dashboard/api/reference-cache/clear"),
+            ("GET", "/dashboard/api/episode-sessions"),
+            ("POST", "/dashboard/api/episode-sessions/reset"),
             ("GET", "/dashboard/api/system"),
             ("GET", "/dashboard/api/events"),
         }
-        assert len(found) == len(DASHBOARD_ENDPOINTS) + 9
+        assert len(found) == len(DASHBOARD_ENDPOINTS) + 15
         assert callable(create_dashboard_router)
     finally:
         store.close()

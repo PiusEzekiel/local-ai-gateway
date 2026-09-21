@@ -13,6 +13,7 @@ import logging
 import os
 from pathlib import Path
 import secrets
+import subprocess
 import time
 from typing import Any, Literal
 from uuid import uuid4
@@ -26,7 +27,11 @@ from .artifact_store import ArtifactStore
 from .job_store import JobStore
 from .quota_monitor import QuotaMonitor
 from .settings_manager import SettingsManager, apply_saved_settings
-from .config import DATA_DIR, DEFAULT_MODEL, MODELS, SETTINGS_PATH, Settings, find_codex_executable
+from .config import (
+    DATA_DIR, DEFAULT_MODEL, MODELS, SETTINGS_PATH, Settings,
+    find_codex_executable, validate_quota_poll_seconds,
+    validate_reference_cache_settings,
+)
 from .contracts import (
     ChatCompletionRequest, ChatMessage, ChatResponseFormat, GatewayError,
     GenerateRequest, ImageReference, ImageRequest, ImageRunResult,
@@ -39,6 +44,8 @@ from .reference_images import (
     MAX_REFERENCE_IMAGE_BYTES, allowed_reference_host, detect_image_extension,
     download_reference_image,
 )
+from .reference_cache import ReferenceCache
+from .episode_sessions import EpisodeSessions
 from .codex_runner import CodexRunner as _CodexRunner, extract_usage, used_web_search
 from .dashboard_routes import create_dashboard_router
 from .generation_routes import create_generation_router
@@ -59,7 +66,8 @@ class CodexRunner(_CodexRunner):
     """
 
     async def run_image(self, **kwargs: Any) -> ImageRunResult:
-        kwargs.setdefault("reference_downloader", download_reference_image)
+        if self.reference_cache is None:
+            kwargs.setdefault("reference_downloader", download_reference_image)
         return await super().run_image(**kwargs)
 
 
@@ -77,8 +85,16 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
     if use_saved_settings:
         settings = apply_saved_settings(Settings.from_env(), settings_manager.load(), MODELS)
     assert settings is not None
-    runner = runner or CodexRunner([settings.codex_exe], model=settings.model)
-
+    # Environment values and injected Settings must obey the same bounds as
+    # dashboard PATCH and the real monitor constructor. Fail clearly before
+    # creating stores, workers, or an unavailable quota monitor.
+    validate_quota_poll_seconds(settings.quota_poll_seconds)
+    validate_reference_cache_settings(
+        settings.reference_cache_enabled,
+        settings.reference_cache_ttl_seconds,
+        settings.reference_cache_retention_days,
+        settings.reference_cache_max_mb,
+    )
     if settings.max_concurrency < 1 or settings.max_queue < 0:
 
         raise ValueError("Invalid concurrency settings")
@@ -94,6 +110,32 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
             artifact_store = ArtifactStore(data_dir / "artifacts")
         except Exception:
             LOG.exception("artifact_store_unavailable")
+
+    reference_cache = None
+    if job_store is not None:
+        try:
+            reference_cache = ReferenceCache(
+                data_dir / "reference-cache",
+                job_store,
+                ttl_seconds=settings.reference_cache_ttl_seconds,
+                retention_days=settings.reference_cache_retention_days,
+                max_bytes=settings.reference_cache_max_mb * 1024 * 1024,
+            )
+        except Exception:
+            LOG.exception("reference_cache_unavailable")
+
+    episode_sessions = None
+    if settings.episode_sessions_enabled:
+        try:
+            episode_sessions = EpisodeSessions(data_dir / "episode-sessions.sqlite3")
+        except Exception as exc:
+            # Do not silently revert to independent sessions for an opted-in user.
+            raise RuntimeError("Episode session storage is unavailable.") from exc
+
+    runner = runner or CodexRunner(
+        [settings.codex_exe], model=settings.model,
+        reference_cache=reference_cache if settings.reference_cache_enabled else None,
+    )
 
     if job_store:
         try:
@@ -132,6 +174,24 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
 
             raise RuntimeError(f"Codex executable not found: {settings.codex_exe}")
 
+        if settings.episode_sessions_enabled and not runner_was_provided:
+            # Read-only, quota-free CLI capability check. We do not silently
+            # downgrade opted-in episodes to ephemeral runs.
+            creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+            try:
+                probe = await asyncio.create_subprocess_exec(
+                    settings.codex_exe, "exec", "resume", "--help",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    creationflags=creationflags,
+                )
+                out, err = await asyncio.wait_for(probe.communicate(), timeout=10)
+            except (OSError, asyncio.TimeoutError) as exc:
+                raise RuntimeError("Could not verify Codex CLI episode-resume support.") from exc
+            help_text = (out + err).decode("utf-8", errors="replace")
+            if probe.returncode != 0 or "--image" not in help_text:
+                raise RuntimeError("Installed Codex CLI does not advertise image-capable exec resume; episode sessions remain unavailable.")
+
         if quota_monitor:
 
             await quota_monitor.start()
@@ -153,6 +213,18 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
                     except Exception:
                         LOG.exception("automatic_retention_cleanup_failed")
             cleanup_task = asyncio.create_task(cleanup_periodically())
+        cache_cleanup_task = None
+        if reference_cache and settings.reference_cache_enabled:
+            async def cleanup_reference_cache_periodically():
+                while True:
+                    await asyncio.sleep(settings.cleanup_interval_hours * 3600)
+                    try:
+                        result = await asyncio.to_thread(reference_cache.cleanup)
+                        if result["removed"]:
+                            live_bus.publish("storage.changed", {})
+                    except Exception:
+                        LOG.exception("automatic_reference_cache_cleanup_failed")
+            cache_cleanup_task = asyncio.create_task(cleanup_reference_cache_periodically())
         try:
             yield
         finally:
@@ -162,6 +234,12 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
                     await cleanup_task
                 except asyncio.CancelledError:
                     pass
+            if cache_cleanup_task is not None:
+                cache_cleanup_task.cancel()
+                try:
+                    await cache_cleanup_task
+                except asyncio.CancelledError:
+                    pass
             if quota_events_task is not None:
                 quota_events_task.cancel()
                 try:
@@ -169,6 +247,8 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
                 except asyncio.CancelledError:
                     pass
             live_bus.close()
+            if episode_sessions is not None:
+                episode_sessions.close()
             if quota_monitor:
                 await quota_monitor.stop()
 
@@ -179,7 +259,10 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
     app.state.history = history
     app.state.live_events = live_bus
     app.state.job_store = job_store
+    app.state.reference_cache = reference_cache
+    app.state.episode_sessions = episode_sessions
     app.state.artifact_store = artifact_store
+    app.state.reference_cache = reference_cache
     app.state.quota_monitor = quota_monitor
     app.state.settings_manager = settings_manager
     app.state.retention = retention
@@ -223,6 +306,7 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
         settings_manager=settings_manager,
         selected_model=selected_model,
         events=live_bus,
+        sessions=episode_sessions,
     )
     app.state.generation_runtime = generation_runtime
 
@@ -240,6 +324,24 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
 
         return {"jobs": [history.public(job) for job in history.jobs]}
 
+
+    @app.get("/dashboard/api/episode-sessions", dependencies=[Depends(require_token)])
+    async def episode_session_list() -> dict[str, Any]:
+        return {"enabled": settings.episode_sessions_enabled,
+                "sessions": episode_sessions.list() if episode_sessions else []}
+
+    @app.post("/dashboard/api/episode-sessions/reset", dependencies=[Depends(require_token)])
+    async def episode_session_reset(body: dict[str, Any]) -> dict[str, Any]:
+        if episode_sessions is None:
+            raise GatewayError("unavailable", "Episode sessions are disabled.", 503)
+        if (not isinstance(body, dict) or set(body) != {"episode_title", "confirmation"}
+                or body.get("confirmation") != "RESET_EPISODE_SESSION"
+                or not isinstance(body.get("episode_title"), str)):
+            raise GatewayError("invalid_request", "Confirm an episode_title with RESET_EPISODE_SESSION.", 422)
+        # Reset cannot interleave with a Codex turn for the same episode.
+        async with episode_sessions.lock(body["episode_title"]):
+            removed = episode_sessions.reset(body["episode_title"])
+        return {"reset": removed}
 
     # All /dashboard/api/* endpoints are registered together and receive
     # existing stores/state rather than importing the app (avoids cycles).
@@ -264,6 +366,7 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
         job_store=job_store,
         history=history,
         events=live_bus,
+        reference_cache=reference_cache,
     ))
 
     # Module 7C: read-only preview plus explicit, confirmed cleanup API.

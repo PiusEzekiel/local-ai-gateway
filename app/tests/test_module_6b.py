@@ -18,7 +18,7 @@ def test_new_database_has_diagnostics_columns(tmp_path):
     store = JobStore(tmp_path / "gateway.sqlite3")
     cols = {r[1] for r in store._db.execute("PRAGMA table_info(jobs)")}
     assert {"exit_code", "diagnostic_preview", "last_successful_stage", "references_downloaded"} <= cols
-    assert store._db.execute("PRAGMA user_version").fetchone()[0] == 6
+    assert store._db.execute("PRAGMA user_version").fetchone()[0] == 7
     store.close()
 
 
@@ -35,7 +35,7 @@ def test_v4_upgrade_preserves_existing_data(tmp_path):
     assert row["request_id"] == "scene_image_8_initial"
     assert row["diagnostic_preview"] is None
     assert row["references_downloaded"] == 0
-    assert store._db.execute("PRAGMA user_version").fetchone()[0] == 6
+    assert store._db.execute("PRAGMA user_version").fetchone()[0] == 7
     store.close()
     store = JobStore(db)  # Re-opening an already-migrated database must be idempotent.
     assert store.get_job("old-job")["request_id"] == "scene_image_8_initial"
