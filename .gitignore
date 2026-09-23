@@ -39,3 +39,5 @@ temp/
 .idea/
 .DS_Store
 Thumbs.db
+# Pinokio runtime logs and session metadata
+logs/
