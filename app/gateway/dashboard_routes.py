@@ -497,7 +497,19 @@ def create_dashboard_router(
                     "elapsed_ms", "reference_count", "created_at", "total_tokens",
                 )
             }
-            item["category"] = "scene" if row["request_id"].startswith("scene_") else "asset"
+
+            # Keep API classification consistent with JobStore.list_gallery().
+            # Assets may have an episode prefix, e.g. SSS019_asset_character.
+            request_id = (row.get("request_id") or "").lower()
+
+            is_asset = (
+                request_id.startswith("asset")
+                or "_asset_" in request_id
+                or request_id.endswith("_asset")
+            )
+
+            item["category"] = "asset" if is_asset else "scene"
+
             item["error"] = (
                 {"type": row.get("error_type"), "message": row.get("error_message")}
                 if row.get("error_type") else None

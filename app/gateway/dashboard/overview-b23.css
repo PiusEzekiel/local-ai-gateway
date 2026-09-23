@@ -1,0 +1,115 @@
+/* Phase B.3 — compact, remembered quota + purposeful overview feed.
+   Loaded after B.2; scoped to existing authenticated dashboard elements. */
+
+/* Only reported capacity percentage is shown. It is not a token count. */
+.top-stat.quota-mini {display:grid;min-width:76px;gap:3px}
+.top-stat.quota-mini>span {color:#91a7c2;font-size:9px;letter-spacing:.065em;text-transform:uppercase}
+.top-stat.quota-mini>strong {color:#9be7c8;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* Keep the Codex monitor as one slim status line until asked for detail. */
+#page-overview .quota-notice {
+  padding:0;background:linear-gradient(110deg,#162a28,#15232e);
+  border:1px solid #345347;border-radius:14px;overflow:hidden;
+}
+#page-overview .quota-notice-head {
+  padding:12px 15px;display:flex;align-items:center;justify-content:space-between;
+  gap:12px;min-height:56px;
+}
+#page-overview .quota-headline {display:flex;align-items:baseline;gap:8px 13px;flex-wrap:wrap;min-width:0}
+#page-overview .quota-headline>strong {font-size:13px!important;color:#a0eacb!important}
+#page-overview .quota-headline #quotaBrief {font-size:12px;color:#d1eae2;font-weight:650}
+#page-overview .quota-headline #quotaSubtitle {font-size:10px;color:#91abac}
+#page-overview .quota-head-actions {display:flex;align-items:center;justify-content:flex-end;gap:12px;min-width:0}
+#page-overview .quota-head-actions #quotaObserved {font-size:10px;color:#9caec3;white-space:nowrap}
+#page-overview .quota-toggle {
+  flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;min-height:34px;
+  background:#233d46;border:1px solid #43636b;border-radius:9px;
+  color:#d7edf1;padding:7px 11px;font-size:11px;font-weight:700;cursor:pointer;
+}
+#page-overview .quota-toggle:hover {background:#2a4b55;border-color:#7acbb2}
+#page-overview .quota-toggle:focus-visible {outline:2px solid #afc9ff;outline-offset:3px}
+#page-overview .quota-chevron {display:inline-block;font-size:17px;line-height:1;transition:transform .16s}
+#page-overview .quota-toggle[aria-expanded="true"] .quota-chevron {transform:rotate(180deg)}
+#page-overview .quota-buckets[hidden] {display:none!important}
+#page-overview .quota-buckets:not([hidden]) {padding:0 14px 14px;gap:10px}
+#page-overview .quota-bucket {padding:14px 16px}
+#page-overview .quota-window-labels>strong {font-size:21px!important}
+#page-overview .quota-credit {min-height:30px}
+#page-overview .quota-notice.unavailable {border-color:#40516a;background:#192434}
+#page-overview .quota-notice.critical,#page-overview .quota-notice.exhausted {border-color:#895261;background:#30202a}
+#page-overview .quota-notice.critical .quota-headline>strong,
+#page-overview .quota-notice.exhausted .quota-headline>strong {color:#ffb0ba!important}
+
+/* The previous grid stretched Recent jobs to the combined side-card height,
+   leaving a large fake empty panel below actual rows. Keep each panel intrinsic. */
+#page-overview .overview-grid {align-items:start}
+#page-overview .recent-surface {align-self:start;min-height:0}
+#page-overview #recentJobs {
+  height:auto;max-height:440px;min-height:0;overflow-y:auto;
+  scrollbar-color:#425875 transparent;
+}
+#page-overview .overview-side {align-content:start}
+#page-overview .overview-side .failure-list .empty-state {min-height:90px;padding:20px 14px}
+
+/* Both feeds: emoji + text + status dot for easy visual identification.
+   No reliance on emoji color alone; existing task labels remain readable. */
+.job-kind {display:flex;align-items:center;gap:6px;min-width:0}
+/* Modern monochrome vector icons for gateway task types. */
+
+.job-kind .job-type-icon {
+  display: inline-block;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+
+  background-color: currentColor;
+
+  -webkit-mask: var(--job-icon) center / contain no-repeat;
+  mask: var(--job-icon) center / contain no-repeat;
+}
+
+/* IMAGE — picture icon */
+
+.job-row.kind-image {
+  --job-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpath d='m21 15-5-5L5 21'/%3E%3C/svg%3E");
+}
+
+/* TEXT — document icon */
+
+.job-row.kind-text {
+  --job-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='3' width='14' height='18' rx='2'/%3E%3Cpath d='M8 9h8M8 13h8M8 17h5'/%3E%3C/svg%3E");
+}
+
+/* RESEARCH — magnifying glass icon */
+
+.job-row.kind-research {
+  --job-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='10.5' cy='10.5' r='7.5'/%3E%3Cpath d='m16 16 5 5'/%3E%3C/svg%3E");
+}
+.job-row.kind-image .job-kind {color:#a7d1ff!important}
+.job-row.kind-text .job-kind {color:#c5baff!important}
+.job-row.kind-research .job-kind {color:#a9e0c8!important}
+.job-row.kind-image:hover {box-shadow:inset 2px 0 #82bdf7}
+.job-row.kind-text:hover {box-shadow:inset 2px 0 #a8a0ff}
+.job-row.kind-research:hover {box-shadow:inset 2px 0 #8cdfb8}
+
+@media(max-width:1100px){
+  #page-overview .quota-headline #quotaSubtitle {display:none}
+  .top-stat.quota-mini {display:grid!important}
+}
+@media(max-width:760px){
+  #page-overview .quota-notice-head {align-items:flex-start;flex-direction:column}
+  #page-overview .quota-head-actions {width:100%;justify-content:space-between}
+  #page-overview .quota-buckets:not([hidden]) {grid-template-columns:1fr}
+  #page-overview #recentJobs {max-height:390px}
+  .job-kind .job-type-icon {
+    width: 15px;
+    height: 15px;
+    flex-basis: 15px;
+  }
+}
+@media(max-width:520px){
+  #page-overview .quota-head-actions #quotaObserved {white-space:normal}
+  #page-overview .quota-headline #quotaSubtitle {display:none}
+  .top-stat.quota-mini>span {font-size:8px}
+}
+@media(prefers-reduced-motion:reduce){#page-overview .quota-chevron {transition:none}}

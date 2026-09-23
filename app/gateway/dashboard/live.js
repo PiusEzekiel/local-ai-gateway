@@ -6,7 +6,7 @@
  * Events are hints, NOT authoritative state: the controller must refetch the
  * existing dashboard endpoints after ready/reconnect and resync_required.
  */
-import {hasToken, openEventStream} from "./api.js?v=9c3-20260920";
+import {hasToken, openEventStream} from "./api.js?v=ui-refresh-phase-a-20260923";
 
 const MAX_FRAME = 128 * 1024; // hard bound in case a buggy proxy omits delimiters
 const EVENT_TYPES = new Set([

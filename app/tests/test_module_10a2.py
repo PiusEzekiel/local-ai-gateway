@@ -243,5 +243,5 @@ def test_dashboard_analytics_controls_exist_and_do_not_change_release_version():
         assert parser.ids.count(label) == 1
         assert label in js
     assert ".reference-cache-analytics-grid" in css
-    assert 'from "./api.js?v=9c3-20260920"' in js
+    assert 'from "./api.js?v=ui-refresh-phase-a-20260923"' in js
     assert "innerHTML" not in js

@@ -9,7 +9,7 @@ import re
 
 G = Path(__file__).resolve().parents[1] / 'gateway'
 D = G / 'dashboard'
-RELEASE = '9c3-20260920'
+RELEASE = 'ui-refresh-phase-a-20260923'
 
 
 def test_gallery_polish_loads_after_base_css():

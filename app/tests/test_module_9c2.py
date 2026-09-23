@@ -187,4 +187,4 @@ def test_frontend_has_separate_readonly_button_and_cache_bust():
     assert 'refreshStorageInventory' in js
     assert '@router.get(\'/dashboard/api/storage/inventory\'' in routes
     assert 'DELETE_EXPIRED_DATA' not in (base/'artifact_inventory.py').read_text()
-    assert '9c3-20260920' in html
+    assert 'ui-refresh-phase-a-20260923' in html

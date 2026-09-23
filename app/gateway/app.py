@@ -15,6 +15,7 @@ from pathlib import Path
 import secrets
 import subprocess
 import time
+import mimetypes
 from typing import Any, Literal
 from uuid import uuid4
 
@@ -270,10 +271,24 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
 
     app.state.started_monotonic = time.monotonic()
 
-    dashboard_dir = Path(__file__).parent / "dashboard"
-    if dashboard_dir.is_dir():
-        app.mount("/dashboard/assets", StaticFiles(directory=dashboard_dir), name="dashboard-assets")
+    # dashboard_dir = Path(__file__).parent / "dashboard"
+    # if dashboard_dir.is_dir():
+	# # Windows may identify .mjs as text/plain.
+	# # ES modules must be served with a JavaScript-compatible MIME type.
+	# mimetypes.add_type("text/javascript", ".mjs")
+    #     app.mount("/dashboard/assets", StaticFiles(directory=dashboard_dir), name="dashboard-assets")
 
+    dashboard_dir = Path(__file__).parent / "dashboard"
+
+    if dashboard_dir.is_dir():
+        # Serve ES modules with a JavaScript MIME type on Windows.
+        mimetypes.add_type("text/javascript", ".mjs")
+
+        app.mount(
+            "/dashboard/assets",
+            StaticFiles(directory=dashboard_dir),
+            name="dashboard-assets",
+        )
 
 
     @app.get("/", include_in_schema=False)

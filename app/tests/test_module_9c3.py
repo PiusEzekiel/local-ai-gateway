@@ -222,4 +222,4 @@ def test_storage_accounting_ui_and_import_graph_are_versioned():
               'storageProjected', 'storageBudgetNote'))
     assert all(word in js for word in ('unregistered_or_other_bytes', 'estimated_post_cleanup_bytes',
               'estimated_remaining_over_limit_bytes', 'accounting_consistent'))
-    assert '9c3-20260920' in html and '9c3-20260920' in js
+    assert 'ui-refresh-phase-a-20260923' in html and 'ui-refresh-phase-a-20260923' in js

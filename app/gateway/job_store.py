@@ -669,37 +669,128 @@ class JobStore:
             row = self._db.execute("SELECT * FROM artifacts WHERE id=?", (artifact_id,)).fetchone()
             return dict(row) if row else None
 
-    def list_gallery(self, *, limit: int = 48, before_created_at: str | None = None,
-                     before_id: str | None = None, category: str = "all",
-                     search: str | None = None) -> list[dict[str, Any]]:
+    def list_gallery(
+        self,
+        *,
+        limit: int = 48,
+        before_created_at: str | None = None,
+        before_id: str | None = None,
+        category: str = "all",
+        search: str | None = None,
+    ) -> list[dict[str, Any]]:
+
+        # Gallery contains image-generation jobs only.
         where = ["j.task='image'"]
         values: list[Any] = []
+
+        # ---------------------------------------------------------
+        # PAGINATION
+        # ---------------------------------------------------------
         if before_created_at and before_id:
-            where.append("(j.created_at < ? OR (j.created_at = ? AND j.id < ?))")
-            values.extend((before_created_at, before_created_at, before_id))
+            where.append(
+                "(j.created_at < ? OR (j.created_at = ? AND j.id < ?))"
+            )
+            values.extend(
+                (before_created_at, before_created_at, before_id)
+            )
+
+        # ---------------------------------------------------------
+        # GALLERY CLASSIFICATION
+        #
+        # Assets:
+        #   asset_image_character_1
+        #   SSS019_asset_elderly_parent_e40602
+        #   SSS020_asset_young_mother_e40711
+        #
+        # Scenes:
+        #   scene_image_1_initial
+        #   SSS019_SC1_image_e40592
+        #   SSS019_SC2_image_e40593
+        #   UUID-based image request IDs
+        #
+        # Any image that is not explicitly identified as an asset
+        # defaults to Scenes.
+        # ---------------------------------------------------------
+
+        asset_condition = """(
+            LOWER(COALESCE(j.request_id, '')) GLOB 'asset*'
+            OR LOWER(COALESCE(j.request_id, '')) GLOB '*_asset_*'
+            OR LOWER(COALESCE(j.request_id, '')) GLOB '*_asset'
+        )"""
+
         if category == "scenes":
-            where.append("j.request_id LIKE 'scene_%'")
+            where.append(f"NOT ({asset_condition})")
+
         elif category == "assets":
-            where.append("j.request_id NOT LIKE 'scene_%'")
+            where.append(asset_condition)
+
         elif category == "failed":
             where.append("j.status='failed'")
+
         elif category == "retried":
             where.append("j.attempt > 1")
+
+        # ---------------------------------------------------------
+        # SEARCH
+        # ---------------------------------------------------------
         if search:
-            where.append("(j.request_id LIKE ? OR j.model LIKE ? OR j.error_type LIKE ?)")
+            where.append(
+                "(j.request_id LIKE ? OR j.model LIKE ? OR j.error_type LIKE ?)"
+            )
+
             term = f"%{search[:128]}%"
             values.extend((term, term, term))
-        values.append(min(max(limit, 1), 100))
-        query = f"""SELECT j.id job_id,j.request_id,j.group_id,j.attempt,j.model,j.status,
-            j.elapsed_ms,j.reference_count,j.created_at,j.error_type,j.error_message,
-            u.total_tokens,a.id artifact_id,a.mime_type,a.width,a.height,a.size_bytes
-            FROM jobs j
-            LEFT JOIN job_usage u ON u.job_id=j.id
-            LEFT JOIN artifacts a ON a.job_id=j.id AND a.artifact_type='image'
-            WHERE {' AND '.join(where)} ORDER BY j.created_at DESC,j.id DESC LIMIT ?"""
-        with self._lock:
-            return [dict(row) for row in self._db.execute(query, values)]
 
+        # ---------------------------------------------------------
+        # LIMIT
+        # ---------------------------------------------------------
+        values.append(min(max(limit, 1), 100))
+
+        # ---------------------------------------------------------
+        # QUERY
+        # ---------------------------------------------------------
+        query = f"""
+            SELECT
+                j.id job_id,
+                j.request_id,
+                j.group_id,
+                j.attempt,
+                j.model,
+                j.status,
+                j.elapsed_ms,
+                j.reference_count,
+                j.created_at,
+                j.error_type,
+                j.error_message,
+                u.total_tokens,
+                a.id artifact_id,
+                a.mime_type,
+                a.width,
+                a.height,
+                a.size_bytes
+            FROM jobs j
+
+            LEFT JOIN job_usage u
+                ON u.job_id = j.id
+
+            LEFT JOIN artifacts a
+                ON a.job_id = j.id
+                AND a.artifact_type = 'image'
+
+            WHERE {' AND '.join(where)}
+
+            ORDER BY
+                j.created_at DESC,
+                j.id DESC
+
+            LIMIT ?
+        """
+
+        with self._lock:
+            return [
+                dict(row)
+                for row in self._db.execute(query, values)
+            ]
 
     # -------------------------------------------------------------------------
     # Module 7C: serialized retention operations. Every destructive WHERE

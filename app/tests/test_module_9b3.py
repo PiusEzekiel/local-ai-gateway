@@ -7,7 +7,7 @@ from pathlib import Path
 
 D = Path(__file__).resolve().parents[1] / 'gateway' / 'dashboard'
 G = D.parent
-VERSION = '9c3-20260920'
+VERSION = 'ui-refresh-phase-a-20260923'
 
 
 def test_gallery_list_abort_and_monotonic_generation():
