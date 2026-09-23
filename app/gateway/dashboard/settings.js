@@ -3,7 +3,9 @@ import {
   getSettings, patchSettings, getPrivacyStorage, purgePrivacy,
   getStoragePreview, getStorageHealth, getStorageInventory, runStorageCleanup, getSystemInfo,
   getReferenceCache, clearReferenceCache,
-} from "./api.js?v=9c3-20260920";
+} from "./api.js?v=ui-refresh-phase-a-20260923";
+
+import {durationNativeUnit, durationOptions, preferredDurationUnit, durationDisplayValue, durationStoredValue, durationOptionLabel} from "./duration-units.mjs?v=ui-refresh-phase-a-20260923";
 
 const $ = id => document.getElementById(id);
 const sections = [
@@ -44,7 +46,7 @@ const help = {
 const view = {
   loaded: false, loading: false, busy: false, dirty: false,
   snapshot: null, baseline: {}, preview: null, includeOrphans: false,
-  purgeScope: "text", initialized: false,
+  purgeScope: "text", initialized: false, activeSection: "model",
 };
 const node = (tag, className = "", text) => {
   const el = document.createElement(tag);
@@ -109,8 +111,15 @@ function showPending() {
 }
 function controlValue(field, key) {
   const el = $(`setting-${key}`);
-  return typeof field.value === "boolean" ? el.checked :
-    typeof field.value === "number" ? (el.value.trim() === "" ? null : Number(el.value)) : el.value;
+  if (typeof field.value === "boolean") return el.checked;
+  if (typeof field.value === "number") {
+    if (el.value.trim() === "") return null;
+    const native = durationNativeUnit(key);
+    return native && !field.choices?.length
+      ? durationStoredValue(el.value, $(`setting-${key}-unit`).value, native)
+      : Number(el.value);
+  }
+  return el.value;
 }
 function editableValue(field) {
   return field.saved !== null && !field.environment_override ? field.saved : field.value;
@@ -144,6 +153,7 @@ function fieldControl(key, field) {
     control.addEventListener("change", () => { label.lastChild.textContent = control.checked ? "Enabled" : "Disabled"; syncDirty(); });
     wrapper.append(label);
   } else if (field.choices?.length) {
+    // Provider-backed choices already show friendly labels for cache freshness.
     control = document.createElement("select");
     for (const choice of field.choices) {
       const option = node("option", "", settingChoiceLabel(key, choice));
@@ -156,30 +166,80 @@ function fieldControl(key, field) {
   } else {
     control = document.createElement("input");
     control.type = "number";
-    control.step = "1";
-    if (field.minimum !== null) control.min = String(field.minimum);
-    if (field.maximum !== null) control.max = String(field.maximum);
-    control.value = String(editableValue(field));
-    const unit = settingUnit(key);
-    // Show the unit on numeric inputs so "300" is never an ambiguous timeout.
-    const hint = unit ? node("small", "settings-input-unit") : null;
-    const updateHint = () => {
-      if (!hint) return;
-      const amount = Number(control.value);
-      const human = control.value.trim() !== "" && Number.isFinite(amount)
-        ? formatSettingValue(key, amount) : "—";
-      hint.textContent = `Enter in ${unit} · ${human}`;
-    };
-    control.addEventListener("input", () => { updateHint(); syncDirty(); });
-    wrapper.append(control);
-    if (hint) { updateHint(); wrapper.append(hint); }
+    control.step = "any";
+    const native = durationNativeUnit(key);
+    if (native) {
+      const unit = node("select", "settings-duration-unit");
+      unit.id = `setting-${key}-unit`;
+      unit.setAttribute("aria-label", `${field.label || key} unit`);
+      for (const value of durationOptions(key)) {
+        const option = node("option", "", durationOptionLabel(value));
+        option.value = value;
+        unit.append(option);
+      }
+      let previousUnit = preferredDurationUnit(key, editableValue(field));
+      unit.value = previousUnit;
+      control.value = durationDisplayValue(editableValue(field), previousUnit, native);
+      const inline = node("div", "settings-duration");
+      const hint = node("small", "settings-input-unit");
+      const updateHint = () => {
+        const raw = durationStoredValue(control.value, unit.value, native);
+        hint.textContent = Number.isSafeInteger(raw)
+          ? `${formatSettingValue(key, raw)} · allowed ${formatSettingValue(key, field.minimum)}–${formatSettingValue(key, field.maximum)}`
+          : "Enter a duration within the permitted range.";
+      };
+      unit.addEventListener("change", () => {
+        // Converting the display unit must never change the saved API value.
+        const stored = durationStoredValue(control.value, previousUnit, native);
+        control.value = durationDisplayValue(stored, unit.value, native);
+        previousUnit = unit.value;
+        updateHint();
+        syncDirty();
+      });
+      control.addEventListener("input", () => { updateHint(); syncDirty(); });
+      unit.disabled = Boolean(field.environment_override);
+      inline.append(control, unit);
+      wrapper.append(inline, hint);
+      updateHint();
+    } else {
+      control.step = "1";
+      if (field.minimum !== null) control.min = String(field.minimum);
+      if (field.maximum !== null) control.max = String(field.maximum);
+      control.value = String(editableValue(field));
+      const displayUnit = settingUnit(key);
+      const hint = displayUnit ? node("small", "settings-input-unit") : null;
+      const updateHint = () => {
+        if (!hint) return;
+        const amount = Number(control.value);
+        hint.textContent = control.value.trim() !== "" && Number.isFinite(amount)
+          ? `${formatSettingValue(key, amount)}` : "Enter a valid value.";
+      };
+      control.addEventListener("input", () => { updateHint(); syncDirty(); });
+      wrapper.append(control);
+      if (hint) { updateHint(); wrapper.append(hint); }
+    }
   }
   control.id = `setting-${key}`;
   control.disabled = Boolean(field.environment_override);
-  if (field.environment_override) wrapper.append(node("small", "settings-flag override", "Environment override · edit the launcher configuration instead."));
-  else if (field.pending_restart) wrapper.append(node("small", "settings-flag pending", "Saved value · gateway restart required"));
+  if (field.environment_override) wrapper.append(node("small", "settings-flag override", "Environment override · change the launcher configuration instead."));
+  else if (field.pending_restart) wrapper.append(node("small", "settings-flag pending", "Saved · gateway restart required"));
   else wrapper.append(node("small", "settings-flag", field.restart_required ? "Applies after restart" : "Applies immediately"));
   return wrapper;
+}
+
+function showSettingsSection(name) {
+  const targetName = `settings-${name}`;
+  document.querySelectorAll(
+    "#settingsGroups > .settings-section, #settings-reference-cache, #settings-storage, #settings-privacy-storage, #settings-system"
+  ).forEach(section => {
+    section.hidden = section.id !== targetName
+      && !(name === "privacy" && section.id === "settings-privacy-storage");
+  });
+  document.querySelectorAll("[data-settings-section]").forEach(button => {
+    const active = button.dataset.settingsSection === name;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-current", active ? "true" : "false");
+  });
 }
 function renderSettings(data) {
   view.snapshot = data;
@@ -218,13 +278,18 @@ function renderSettings(data) {
       const info = document.createElement("div");
       const label = node("label", "", field.label || key);
       label.htmlFor = `setting-${key}`;
-      info.append(label, node("p", "", help[key] || ""));
+      info.append(label);
+      if (help[key]) {
+        const more = node("details", "settings-help");
+        more.append(node("summary", "", "What does this control?"), node("p", "", help[key]));
+        info.append(more);
+      }
       const now = field.value;
       const desired = editableValue(field);
       const active = node("small", "settings-current",
         `Active: ${formatSettingValue(key, now)}`
         + (!Object.is(now, desired) ? ` · saved: ${formatSettingValue(key, desired)}` : ""));
-      info.append(active);
+      if (!Object.is(now, desired) || field.environment_override) info.append(active);
       row.append(info, fieldControl(key, field));
       list.append(row);
     }
@@ -235,6 +300,7 @@ function renderSettings(data) {
       container.append(section);
     }
   }
+  showSettingsSection(view.activeSection);
   status(data.pending_restart ? "Saved changes are pending restart. Your current running values are shown beside each setting." : "Settings loaded. Changes are not applied until you save.", data.pending_restart ? "" : "success");
 }
 export async function loadSettings({force = false} = {}) {
@@ -602,7 +668,8 @@ export function initializeSettings() {
       status(`The ${button.textContent.trim()} section is unavailable. Refresh Settings and try again.`, "error");
       return;
     }
-    document.querySelectorAll("[data-settings-section]").forEach(item => item.classList.toggle("active", item === button));
+    view.activeSection = button.dataset.settingsSection;
+    showSettingsSection(view.activeSection);
     target.scrollIntoView({behavior: "auto", block: "start"});
   }));
 }

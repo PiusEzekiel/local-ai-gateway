@@ -1,4 +1,4 @@
-import {compact, duration} from "./jobs.js?v=9c3-20260920";
+import {compact, duration} from "./jobs.js?v=ui-refresh-phase-a-20260923";
 
 const $ = id => document.getElementById(id);
 const SVG_NS = "http://www.w3.org/2000/svg";

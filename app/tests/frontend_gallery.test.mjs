@@ -5,7 +5,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 
-const code = readFileSync(new URL('../gateway/dashboard/dashboard.js', import.meta.url), 'utf8');
+const code = readFileSync(new URL('../gateway/dashboard/dashboard.js', import.meta.url), 'utf8').replace(/\r\n?/g, '\n');
 const cancelFn = code.match(/function cancelGalleryList\(\) \{[\s\S]*?\n\}/)?.[0];
 const loadFn = code.match(/async function loadGallery\(reset = false\) \{[\s\S]*?\n\}(?=\n\n\/\/ The SSE stream)/)?.[0];
 assert.ok(cancelFn && loadFn, 'extract real Gallery request handlers');

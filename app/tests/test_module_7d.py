@@ -69,12 +69,12 @@ def test_settings_assets_are_versioned_and_ui_is_modular():
     html = (GATEWAY / "dashboard.html").read_text(encoding="utf-8")
     dashboard = (GATEWAY / "dashboard" / "dashboard.js").read_text(encoding="utf-8")
     settings = (GATEWAY / "dashboard" / "settings.js").read_text(encoding="utf-8")
-    assert "/dashboard/assets/settings.css?v=9c3-20260920" in html
-    assert "/dashboard/assets/dashboard.js?v=9c3-20260920" in html
-    assert 'from "./settings.js?v=9c3-20260920"' in dashboard
+    assert "/dashboard/assets/settings.css?v=ui-refresh-phase-a-20260923" in html
+    assert "/dashboard/assets/dashboard.js?v=ui-refresh-phase-a-20260923" in html
+    assert 'from "./settings.js?v=ui-refresh-phase-a-20260923"' in dashboard
     assert 'initializeSettings();' in dashboard
     assert 'if (page === "settings") loadSettings();' in dashboard
-    assert 'from "./api.js?v=9c3-20260920"' in settings
+    assert 'from "./api.js?v=ui-refresh-phase-a-20260923"' in settings
     assert "innerHTML" not in settings
     assert "DELETE_EXPIRED_DATA" in settings and "DELETE_RETAINED_DATA" in settings
     assert 'getStoragePreview($("settingsIncludeOrphans").checked)' in settings
@@ -184,8 +184,11 @@ def test_settings_numeric_controls_preserve_original_api_units():
     stylesheet = (GATEWAY / "dashboard" / "settings.css").read_text(encoding="utf-8")
     assert 'option.value = choice;' in settings
     assert 'control.value = String(editableValue(field));' in settings
-    assert 'typeof field.value === "number" ? (el.value.trim() === "" ? null : Number(el.value))' in settings
+    assert 'if (el.value.trim() === "") return null;' in settings
+    assert 'const native = durationNativeUnit(key);' in settings
+    assert 'native && !field.choices?.length' in settings
+    assert 'durationStoredValue(el.value, $(`setting-${key}-unit`).value, native)' in settings
     assert 'wrapper.append(hint);' in settings
     assert '.settings-input-unit{' in stylesheet
-    assert 'from "./api.js?v=9c3-20260920"' in settings
+    assert 'from "./api.js?v=ui-refresh-phase-a-20260923"' in settings
     assert 'nav2' not in settings

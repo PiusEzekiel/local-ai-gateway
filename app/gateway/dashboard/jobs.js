@@ -1,5 +1,5 @@
-import {getJob, requestBlob} from "./api.js?v=9c3-20260920";
-import {state, update} from "./state.js?v=9c3-20260920";
+import {getJob, requestBlob} from "./api.js?v=ui-refresh-phase-a-20260923";
+import {state, update} from "./state.js?v=ui-refresh-phase-a-20260923";
 
 const el = (tag, className, text) => {
   const node = document.createElement(tag);

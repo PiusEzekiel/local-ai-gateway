@@ -5,7 +5,7 @@ import re
 
 G = Path(__file__).resolve().parents[1] / 'gateway'
 D = G / 'dashboard'
-V = '9c3-20260920'
+V = 'ui-refresh-phase-a-20260923'
 
 class Parsed(HTMLParser):
     def __init__(self):

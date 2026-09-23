@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 START = ROOT / 'start.js'
 RUN = ROOT / 'app' / 'run.ps1'
 FIREWALL = ROOT / 'inspect-lan-firewall.ps1'
-GUIDE = ROOT / 'MODULE_9D_INSTALL.md'
+GUIDE = ROOT / 'app/docs/modules/MODULE_9D_INSTALL.md'
 
 
 def read(path: Path) -> str:

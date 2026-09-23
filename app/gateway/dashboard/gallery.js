@@ -1,5 +1,5 @@
-import {getJob, requestBlob} from "./api.js?v=9c3-20260920";
-import {compact, duration} from "./jobs.js?v=9c3-20260920";
+import {getJob, requestBlob} from "./api.js?v=ui-refresh-phase-a-20260923";
+import {compact, duration} from "./jobs.js?v=ui-refresh-phase-a-20260923";
 
 let cardObjectUrls = [];
 let lightboxObjectUrl = null;

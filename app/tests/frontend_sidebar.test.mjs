@@ -4,7 +4,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 
-const code = readFileSync(new URL('../gateway/dashboard/dashboard.js', import.meta.url), 'utf8');
+const code = readFileSync(new URL('../gateway/dashboard/dashboard.js', import.meta.url), 'utf8').replace(/\r\n?/g, '\n');
 const fn = code.match(/const SIDEBAR_PREF = "gatewaySidebarCollapsed";[\s\S]*?\n\}(?=\n\/\/ The transport badge)/)?.[0];
 assert.ok(fn, 'find actual setSidebarCollapsed implementation');
 function fixture(saved = null) {
