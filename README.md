@@ -2,8 +2,13 @@
 
 Windows-hosted, self-hosted Codex CLI gateway for n8n, with an authenticated monitoring and operations dashboard. The gateway accepts compatible text, research, chat-shaped and image-generation requests; runs Codex locally under the signed-in Windows account; and returns responses that the existing n8n automation can consume.
 
-**Release checkpoint:** Module 8D (20 September 2026). The Windows regression suite reported **149 passed, 2 dependency deprecation warnings**. A browser screenshot confirmed **Healthy + Live**, recent completed text/image jobs, worker state and Dashboard sync. These checks do not replace a fresh end-to-end smoke test after deployment changes.
+**Release checkpoint:** [v0.10.0](https://github.com/PiusEzekiel/local-ai-gateway/releases/tag/v0.10.0) (September 2026). The earlier Module 8D test result was a historical checkpoint; run the full regression suite for your current deployment.
 
+## Documentation
+
+- [Historical module guides and index](app/docs/modules/README.md)
+- [n8n workflow/API contract](app/docs/CODEX_WORKFLOW_CONTRACT.md)
+- [Control-plane implementation history](app/docs/CONTROL_PLANE_IMPLEMENTATION.md)
 ## Where it runs
 
 | Item | Location |
