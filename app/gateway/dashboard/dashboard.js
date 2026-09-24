@@ -234,7 +234,7 @@ function disconnectSession({expired = false} = {}) {
   closeLightbox();
   cancelGalleryList();
   abortGalleryMedia(); // abort authenticated images and revoke blob URLs
-  setToken("");       // clear both the module-local token and sessionStorage
+  setToken("");       // clear the in-memory and persisted authentication token
   $("token").value = "";
   $("appShell").hidden = true;
   $("authScreen").hidden = false;
@@ -509,7 +509,8 @@ if (sessionStorage.getItem("gatewayAuthNotice") === "expired")
   $("authError").textContent = "The gateway token is no longer valid. Connect again.";
 sessionStorage.removeItem("gatewayAuthNotice");
 setSidebarCollapsed(sessionStorage.getItem(SIDEBAR_PREF) === "1");
-$("token").value = sessionStorage.getItem("gatewayToken") || "";
+// Restore the remembered token when the login screen initializes.
+$("token").value = localStorage.getItem("gatewayToken") || "";
 document.querySelectorAll("[data-custom-end]").forEach(node => { node.value = new Date().toISOString().slice(0, 16); });
 document.querySelectorAll("[data-custom-start]").forEach(node => { node.value = new Date(Date.now() - 86400000).toISOString().slice(0, 16); });
 initializeLightbox();

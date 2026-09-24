@@ -1,19 +1,45 @@
-let token = sessionStorage.getItem("gatewayToken") || "";
+// ============================================================
+// Dashboard Authentication
+//
+// Remember the gateway token across browser and PC restarts.
+// The credential remains scoped to this browser profile and
+// the exact gateway origin (hostname + port).
+// ============================================================
+
+// Restore the persistent token when this module loads.
+let token = localStorage.getItem("gatewayToken") || "";
+
 let unauthorizedHandler = null;
 
-// A single session-bound handler catches 401s from *all* dashboard API calls,
-// not only Overview and SSE. Never include the bearer value in diagnostics.
+// A single handler catches 401s from all dashboard API calls.
+// Never include the bearer token in diagnostics or logs.
 export function setUnauthorizedHandler(callback) {
-  unauthorizedHandler = typeof callback === "function" ? callback : null;
+  unauthorizedHandler =
+    typeof callback === "function" ? callback : null;
 }
 
+// Save a successful login or clear credentials on disconnect.
+//
+// localStorage persists across browser and PC restarts.
+// sessionStorage.removeItem cleans up credentials left behind
+// by the previous authentication implementation.
 export function setToken(value) {
-  token = value.trim();
-  if (token) sessionStorage.setItem("gatewayToken", token);
-  else sessionStorage.removeItem("gatewayToken");
+  token = String(value ?? "").trim();
+
+  if (token) {
+    localStorage.setItem("gatewayToken", token);
+  } else {
+    localStorage.removeItem("gatewayToken");
+  }
+
+  sessionStorage.removeItem("gatewayToken");
 }
 
-export function hasToken() { return Boolean(token); }
+// Used by dashboard startup to determine whether an existing
+// credential is available for automatic authentication.
+export function hasToken() {
+  return Boolean(token);
+}
 
 export async function request(path, options = {}) {
   const headers = new Headers(options.headers || {});
