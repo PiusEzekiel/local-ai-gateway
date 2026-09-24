@@ -64,20 +64,116 @@ test('repeated 401 or double-click disconnect is idempotent',()=>{
   assert.equal(h.data.has('gatewayAuthNotice'),false);
 });
 
-test('auth API notifies for JSON and blob 401 but not other errors',async()=>{
-  const data = new Map([['gatewayToken','fake-value']]);
-  globalThis.sessionStorage={getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)};
-  const api=await import('../gateway/dashboard/api.js?v=ui-refresh-phase-a-20260923');
-  let expired=0;
-  api.setUnauthorizedHandler(()=>expired++);
-  const oldFetch=globalThis.fetch;
+test('auth API notifies for JSON and blob 401 but not other errors', async () => {
+  // ==========================================================
+  // MOCK PERSISTENT AND SESSION STORAGE
+  //
+  // The API reads localStorage immediately when imported.
+  // Both browser storage mocks must exist before import().
+  // ==========================================================
+
+  const localData = new Map([
+    ['gatewayToken', 'fake-value'],
+  ]);
+
+  const sessionData = new Map();
+
+  globalThis.localStorage = {
+    getItem: key => localData.get(key) ?? null,
+
+    setItem: (key, value) => {
+      localData.set(key, String(value));
+    },
+
+    removeItem: key => {
+      localData.delete(key);
+    },
+  };
+
+  globalThis.sessionStorage = {
+    getItem: key => sessionData.get(key) ?? null,
+
+    setItem: (key, value) => {
+      sessionData.set(key, String(value));
+    },
+
+    removeItem: key => {
+      sessionData.delete(key);
+    },
+  };
+
+  // Import only after browser storage has been initialized.
+  const api = await import(
+    '../gateway/dashboard/api.js?v=ui-refresh-phase-a-20260923'
+  );
+
+  let expired = 0;
+
+  api.setUnauthorizedHandler(() => {
+    expired++;
+  });
+
+  const oldFetch = globalThis.fetch;
+
   try {
-    globalThis.fetch=async()=>({ok:false,status:401,json:async()=>({error:{message:'Unauthorized'}})});
-    await assert.rejects(api.request('/dashboard/api/summary'),{status:401});
-    await assert.rejects(api.requestBlob('/dashboard/api/artifacts/opaque'),{status:401});
-    assert.equal(expired,2);
-    globalThis.fetch=async()=>({ok:false,status:503,json:async()=>({error:{message:'Unavailable'}})});
-    await assert.rejects(api.request('/dashboard/api/summary'),{status:503});
-    assert.equal(expired,2);
-  }finally{globalThis.fetch=oldFetch;api.setUnauthorizedHandler(null);}
+    // --------------------------------------------------------
+    // JSON REQUEST: 401 MUST TRIGGER AUTH HANDLER
+    // --------------------------------------------------------
+
+    globalThis.fetch = async () => ({
+      ok: false,
+      status: 401,
+
+      json: async () => ({
+        error: {
+          message: 'Unauthorized',
+        },
+      }),
+    });
+
+    await assert.rejects(
+      api.request('/dashboard/api/summary'),
+      {status: 401}
+    );
+
+    // --------------------------------------------------------
+    // BLOB REQUEST: 401 MUST ALSO TRIGGER AUTH HANDLER
+    // --------------------------------------------------------
+
+    await assert.rejects(
+      api.requestBlob('/dashboard/api/artifacts/opaque'),
+      {status: 401}
+    );
+
+    assert.equal(expired, 2);
+
+    // --------------------------------------------------------
+    // OTHER ERRORS MUST NOT TRIGGER AUTH HANDLER
+    // --------------------------------------------------------
+
+    globalThis.fetch = async () => ({
+      ok: false,
+      status: 503,
+
+      json: async () => ({
+        error: {
+          message: 'Unavailable',
+        },
+      }),
+    });
+
+    await assert.rejects(
+      api.request('/dashboard/api/summary'),
+      {status: 503}
+    );
+
+    assert.equal(expired, 2);
+
+  } finally {
+    // Restore the original fetch implementation and remove
+    // the authentication callback to avoid test leakage.
+    globalThis.fetch = oldFetch;
+
+    api.setUnauthorizedHandler(null);
+  }
 });
