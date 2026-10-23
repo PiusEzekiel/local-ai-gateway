@@ -1,11 +1,21 @@
 """Public request models, runner results, and stable GatewayError type."""
 from __future__ import annotations
 
+
+import base64
+import binascii
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import uuid4
-from pydantic import BaseModel, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
+
 from .config import DEFAULT_MODEL
 
 class GenerateRequest(BaseModel):
@@ -27,11 +37,204 @@ class GenerateRequest(BaseModel):
     codex_model: Literal["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"] | None = None
 
 
+
+# -----------------------------------------------------------
+# MODULE 9E.1 — MULTIMODAL CHAT REQUEST CONTRACT
+# -----------------------------------------------------------
+# Supports:
+#   1. Existing text-only chat messages.
+#   2. OpenAI-compatible text + image_url content parts.
+#
+# This module only validates the request structure.
+# Image attachment/execution is implemented in 9E.2/9E.3.
+#
+# Security:
+# - Base64 data URLs only; remote URLs are not accepted.
+# - JPEG, PNG and WebP only.
+# - Maximum 5 MiB per image.
+# - Maximum 4 images per chat request.
+# - Do not log image data or validation input values.
+# -----------------------------------------------------------
+
+MAX_CHAT_IMAGE_BYTES = 5 * 1024 * 1024
+MAX_CHAT_IMAGES_PER_REQUEST = 4
+
+# Includes the Base64 data and the MIME/header prefix.
+MAX_CHAT_IMAGE_DATA_URL_CHARS = 7_000_100
+
+SUPPORTED_CHAT_IMAGE_PREFIXES = {
+    "data:image/jpeg;base64": "jpeg",
+    "data:image/png;base64": "png",
+    "data:image/webp;base64": "webp",
+}
+
+
+class ChatTextPart(BaseModel):
+    """Text inside an OpenAI-compatible content-parts array."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["text"]
+
+    text: str = Field(
+        min_length=1,
+        max_length=40_000,
+    )
+
+
+class ChatImageURL(BaseModel):
+    """A Base64-encoded image URL; no external URL fetching."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    url: str = Field(
+        min_length=1,
+        max_length=MAX_CHAT_IMAGE_DATA_URL_CHARS,
+    )
+
+    @field_validator("url")
+    @classmethod
+    def validate_data_url(cls, value: str) -> str:
+        header, separator, encoded = value.partition(",")
+
+        image_type = SUPPORTED_CHAT_IMAGE_PREFIXES.get(
+            header
+        )
+
+        if not separator or image_type is None:
+            raise ValueError(
+                "image_url must be a Base64 JPEG, PNG, "
+                "or WebP data URL"
+            )
+
+        # Reject oversized input before Base64 decoding.
+        max_encoded_length = 4 * (
+            (MAX_CHAT_IMAGE_BYTES + 2) // 3
+        )
+
+        if (
+            not encoded
+            or len(encoded) > max_encoded_length
+        ):
+            raise ValueError(
+                "image_url is empty or exceeds "
+                "the 5 MiB image limit"
+            )
+
+        try:
+            image_bytes = base64.b64decode(
+                encoded,
+                validate=True,
+            )
+        except (binascii.Error, ValueError) as exc:
+            raise ValueError(
+                "image_url contains invalid Base64"
+            ) from exc
+
+        if (
+            not image_bytes
+            or len(image_bytes) > MAX_CHAT_IMAGE_BYTES
+        ):
+            raise ValueError(
+                "image_url is empty or exceeds "
+                "the 5 MiB image limit"
+            )
+
+        # Check that the declared MIME is consistent
+        # with the actual leading file signature.
+        #
+        # Full image decoding, image dimensions and
+        # safe temporary-file creation belong to 9E.2.
+        if image_type == "jpeg":
+            signature_ok = image_bytes.startswith(
+                b"\xff\xd8\xff"
+            )
+
+        elif image_type == "png":
+            signature_ok = image_bytes.startswith(
+                b"\x89PNG\r\n\x1a\n"
+            )
+
+        else:
+            signature_ok = (
+                image_bytes.startswith(b"RIFF")
+                and image_bytes[8:12] == b"WEBP"
+            )
+
+        if not signature_ok:
+            raise ValueError(
+                "image_url media signature does "
+                "not match its declared MIME type"
+            )
+
+        return value
+
+
+class ChatImagePart(BaseModel):
+    """One image attachment in a chat content-parts array."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["image_url"]
+
+    image_url: ChatImageURL
+
+
+# Discriminated union ensures each content part
+# is validated against its declared type.
+ChatContentPart = Annotated[
+    ChatTextPart | ChatImagePart,
+    Field(discriminator="type"),
+]
+
+ChatStringContent = Annotated[
+    str,
+    Field(min_length=1, max_length=40_000),
+]
+
+ChatPartsContent = Annotated[
+    list[ChatContentPart],
+    Field(min_length=1, max_length=8),
+]
+
+
 class ChatMessage(BaseModel):
+    """Backward-compatible text or multimodal chat message."""
 
-    role: Literal["system", "user", "assistant"]
+    role: Literal[
+        "system",
+        "user",
+        "assistant",
+    ]
 
-    content: str = Field(min_length=1, max_length=40_000)
+    content: ChatStringContent | ChatPartsContent
+
+    @model_validator(mode="after")
+    def validate_parts(self):
+        if isinstance(self.content, list):
+
+            # Only user messages can provide images.
+            if self.role != "user":
+                raise ValueError(
+                    "Only user messages may contain "
+                    "multimodal content"
+                )
+
+            # A text-only message should continue using
+            # the existing string-based content contract.
+            has_image = any(
+                isinstance(part, ChatImagePart)
+                for part in self.content
+            )
+
+            if not has_image:
+                raise ValueError(
+                    "Multipart content must include "
+                    "an image_url part"
+                )
+
+        return self
+
 
 
 class ChatResponseFormat(BaseModel):
@@ -64,6 +267,33 @@ class ChatCompletionRequest(BaseModel):
     timeout_seconds: int | None = Field(default=None, ge=5, le=300)
 
     codex_model: Literal["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"] | None = None
+
+
+
+    # -------------------------------------------------------
+    # MODULE 9E.1 — REQUEST-WIDE IMAGE COUNT LIMIT
+    # -------------------------------------------------------
+    # Individual messages can have multiple content parts,
+    # but the complete chat request may contain at most
+    # four images.
+    # -------------------------------------------------------
+
+    @model_validator(mode="after")
+    def limit_images(self):
+        image_count = sum(
+            isinstance(part, ChatImagePart)
+            for message in self.messages
+            if isinstance(message.content, list)
+            for part in message.content
+        )
+
+        if image_count > MAX_CHAT_IMAGES_PER_REQUEST:
+            raise ValueError(
+                "Chat request exceeds the four-image limit"
+            )
+
+        return self
+
 
 
 class ImageReference(BaseModel):
