@@ -128,17 +128,16 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
                 cfg.DATA_DIR = _ORIGINAL_CONFIG_DATA
             if _ORIGINAL_CONFIG_SETTINGS is not None:
                 cfg.SETTINGS_PATH = _ORIGINAL_CONFIG_SETTINGS
-
-
 @pytest.fixture(autouse=True)
 def _reject_live_gateway_storage(monkeypatch: pytest.MonkeyPatch):
-    """Catch accidental explicitly constructed real JobStore/ArtifactStore/saves."""
+    """Catch attempts to access or modify live Gateway storage."""
     from gateway.artifact_store import ArtifactStore
     from gateway.job_store import JobStore
     from gateway.settings_manager import SettingsManager
 
     job_init = JobStore.__init__
     artifact_init = ArtifactStore.__init__
+    settings_update = SettingsManager.update
     settings_write = SettingsManager._write
 
     def job_guard(self, path, *args, **kwargs):
@@ -151,10 +150,21 @@ def _reject_live_gateway_storage(monkeypatch: pytest.MonkeyPatch):
         _forbid_live_path(root, "ArtifactStore")
         return artifact_init(self, root, *args, **kwargs)
 
+    def settings_update_guard(self, *args, **kwargs):
+        # Reject live settings BEFORE reading or validating them.
+        _forbid_live_path(self.path, "SettingsManager")
+        return settings_update(self, *args, **kwargs)
+
     def settings_guard(self, data):
+        # Retain a second guard against direct writes.
         _forbid_live_path(self.path, "SettingsManager write")
         return settings_write(self, data)
 
     monkeypatch.setattr(JobStore, "__init__", job_guard)
     monkeypatch.setattr(ArtifactStore, "__init__", artifact_guard)
-    monkeypatch.setattr(SettingsManager, "_write", settings_guard)
+    monkeypatch.setattr(
+        SettingsManager, "update", settings_update_guard
+    )
+    monkeypatch.setattr(
+        SettingsManager, "_write", settings_guard
+    )
