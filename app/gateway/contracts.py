@@ -348,7 +348,7 @@ class ImageRequest(BaseModel):
     # If omitted, use the configured image default (600s unless changed).
     timeout_seconds: int | None = Field(default=None, ge=30, le=900)
 
-    codex_model: Literal["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"] | None = None
+    codex_model: Literal["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.5"] | None = None
 
 
 class ModelSelection(BaseModel):

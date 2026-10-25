@@ -936,6 +936,22 @@ class CodexRunner:
                 ) from exc
 
             event_summary = codex_event_summary(stdout)
+            # Diagnostics only: confirm whether Codex actually emitted an image-tool
+            # event. A successful text turn is NOT evidence of image generation.
+            image_tool_events = []
+            for raw_line in stdout.decode("utf-8", errors="replace").splitlines():
+                try:
+                    event = json.loads(raw_line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(event, dict):
+                    continue
+                item = event.get("item")
+                if (event.get("type") in {"item.started", "item.updated", "item.completed", "item.failed"}
+                        and isinstance(item, dict)
+                        and item.get("type") in {"image_generation", "image_generation_call"}):
+                    image_tool_events.append(event["type"])
+
 
             LOG.info(
                 "image_codex_exit request_id=%s exit_code=%s stdout_bytes=%s stderr_bytes=%s "
@@ -1011,15 +1027,25 @@ class CodexRunner:
 
             if not images:
                 LOG.warning(
-                    "image_output_missing request_id=%s thread_id=%s image_dir=%s events=%s",
+                    "image_output_missing request_id=%s thread_id=%s image_dir=%s "
+                    "events=%s image_tool_event_count=%s",
                     log_request_id,
                     thread_id,
                     str(image_dir),
                     event_summary,
+                    len(image_tool_events),
                 )
+                if not image_tool_events:
+                    raise GatewayError(
+                        "image_tool_not_observed",
+                        "Codex finished without an observable image-generation tool call "
+                        "or saved image. Check model image-tool support and CLI version.",
+                        502,
+                    )
                 raise GatewayError(
-                    "invalid_response",
-                    "Codex completed but did not save an image file.",
+                    "image_output_not_found",
+                    "Codex reported an image-generation tool event but no image file "
+                    "was found under the current thread's generated_images directory.",
                     502,
                 )
 
