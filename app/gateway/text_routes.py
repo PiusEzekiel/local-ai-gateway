@@ -5,12 +5,24 @@ import asyncio
 import json
 import logging
 import time
+
+import base64
+import binascii
+
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
-from .contracts import ChatCompletionRequest, GatewayError, GenerateRequest
+
+from .contracts import (
+    ChatCompletionRequest,
+    ChatImagePart,
+    ChatTextPart,
+    GatewayError,
+    GenerateRequest,
+)
+
 from .generation_state import GenerationContext, episode_turn
 from .schema_validation import resolve_schema
 
@@ -20,8 +32,15 @@ LOG = logging.getLogger("uvicorn.error")
 def create_text_router(ctx: GenerationContext) -> APIRouter:
     router = APIRouter()
 
-    async def handle(request: GenerateRequest, task: Literal["generate", "research"],
-                     operation: str | None = None) -> JSONResponse:
+
+    async def handle(
+        request: GenerateRequest,
+        task: Literal["generate", "research"],
+        operation: str | None = None,
+        *,
+        image_attachments: list[tuple[str, bytes]] | None = None,
+    ) -> JSONResponse:
+
 
         started = time.monotonic()
 
@@ -133,6 +152,21 @@ def create_text_router(ctx: GenerationContext) -> APIRouter:
                     raise GatewayError("timeout", "Timed out waiting for the episode session.", 504)
                 session_args = ({"persistent": True, "session_id": previous_thread}
                                 if ctx.sessions and request.episode_title else {})
+
+                # ---------------------------------------------------
+                # MODULE 9E.3 — OPTIONAL VISION ATTACHMENTS
+                # ---------------------------------------------------
+                # Only pass image_attachments when images exist.
+                # This preserves the call signature used by older
+                # text-only integrations and test runners.
+                # ---------------------------------------------------
+
+                vision_args = (
+                    {"image_attachments": image_attachments}
+                    if image_attachments
+                    else {}
+                )
+
                 try:
                     result = await ctx.runner.run(
                         prompt=prompt,
@@ -144,7 +178,10 @@ def create_text_router(ctx: GenerationContext) -> APIRouter:
                         progress=lambda stage: ctx.history.update(
                             job, status="running", stage=stage,
                         ),
+
                         **session_args,
+                        **vision_args,
+
                     )
                 except BaseException:
                     # A failed/aborted CLI may have advanced its own rollout.
@@ -246,9 +283,140 @@ def create_text_router(ctx: GenerationContext) -> APIRouter:
 
             raise GatewayError("invalid_request", "Streaming is not supported.", 422)
 
-        prompt = "Complete the following conversation. Follow the system instructions and answer the latest user request.\n\n"
 
-        prompt += "\n\n".join(f"[{message.role}]\n{message.content}" for message in request.messages)
+        # ---------------------------------------------------
+        # MODULE 9E.1 — MULTIMODAL FAIL-CLOSED GUARD
+        # ---------------------------------------------------
+        # The request contract now validates image content,
+        # but the text runner cannot attach images yet.
+        #
+        # Reject image requests explicitly until Modules
+        # 9E.2 and 9E.3 provide secure image forwarding.
+        #
+        # Without this guard, Python would stringify the
+        # content array and potentially pass Base64 image
+        # data to Codex as plain text.
+        # ---------------------------------------------------
+
+
+
+
+        # -----------------------------------------------------------
+        # MODULE 9E.3 — MULTIMODAL MESSAGE ASSEMBLY
+        # -----------------------------------------------------------
+        # Preserve the existing role-labelled text prompt.
+        #
+        # For multimodal messages:
+        # - Extract validated Base64 image data.
+        # - Keep text instructions in their original order.
+        # - Insert short image-position markers into the prompt.
+        # - Send the actual image bytes separately to the runner.
+        #
+        # IMPORTANT:
+        # Never append Base64 data to the text prompt.
+        # The runner receives images through --image, not text.
+        # -----------------------------------------------------------
+
+        image_attachments: list[tuple[str, bytes]] = []
+        message_sections: list[str] = []
+
+        for message in request.messages:
+
+            if isinstance(message.content, str):
+                # Original text-only behaviour.
+                message_text = message.content
+
+            else:
+                content_sections: list[str] = []
+
+                for part in message.content:
+
+                    if isinstance(part, ChatTextPart):
+
+                        content_sections.append(part.text)
+
+                    elif isinstance(part, ChatImagePart):
+
+                        data_url = part.image_url.url
+
+                        header, separator, encoded = (
+                            data_url.partition(",")
+                        )
+
+                        # contracts.py has already validated:
+                        # - data URL structure
+                        # - allowed MIME type
+                        # - Base64 encoding
+                        # - image signature
+                        # - image size and count limits
+                        #
+                        # Decode again here to obtain the bytes
+                        # needed by CodexRunner.run().
+                        if not separator:
+                            raise GatewayError(
+                                "invalid_request",
+                                "Invalid chat image data URL.",
+                                422,
+                            )
+
+                        mime_type = (
+                            header.removeprefix("data:")
+                                  .split(";", 1)[0]
+                        )
+
+                        try:
+                            image_bytes = base64.b64decode(
+                                encoded,
+                                validate=True,
+                            )
+
+                        except (
+                            binascii.Error,
+                            ValueError,
+                        ) as exc:
+                            raise GatewayError(
+                                "invalid_request",
+                                "Invalid chat image encoding.",
+                                422,
+                            ) from exc
+
+                        image_attachments.append(
+                            (mime_type, image_bytes)
+                        )
+
+                        # Maintain image ordering without putting
+                        # the image data into model text.
+                        image_number = len(image_attachments)
+
+                        content_sections.append(
+                            f"[Attached image {image_number}]"
+                        )
+
+                    else:
+                        # Defensive fallback. Pydantic should
+                        # already reject unsupported part types.
+                        raise GatewayError(
+                            "invalid_request",
+                            "Unsupported chat content part.",
+                            422,
+                        )
+
+                message_text = "\n".join(
+                    content_sections
+                )
+
+            message_sections.append(
+                f"[{message.role}]\n{message_text}"
+            )
+
+        # Preserve the original prompt structure.
+        prompt = (
+            "Complete the following conversation. "
+            "Follow the system instructions and answer "
+            "the latest user request.\n\n"
+        )
+
+        prompt += "\n\n".join(message_sections)
 
         json_mode = request.response_format is not None and request.response_format.type == "json_object"
 
@@ -275,7 +443,16 @@ def create_text_router(ctx: GenerationContext) -> APIRouter:
 
         )
 
-        result = await handle(internal, "generate", "chat")
+
+        # Only the chat endpoint supplies image attachments.
+        # Normal text requests pass None.
+        result = await handle(
+            internal,
+            "generate",
+            "chat",
+            image_attachments=image_attachments or None,
+        )
+
 
         if result.status_code != 200:
 

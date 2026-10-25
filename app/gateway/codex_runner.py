@@ -8,6 +8,15 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+import warnings
+from io import BytesIO
+
+from PIL import Image, UnidentifiedImageError
+
+from .contracts import (
+    MAX_CHAT_IMAGE_BYTES,
+    MAX_CHAT_IMAGES_PER_REQUEST,
+)
 from contextlib import nullcontext
 from typing import Any, Callable
 from uuid import UUID
@@ -81,6 +90,143 @@ def used_web_search(stdout: bytes) -> bool:
             return True
 
     return False
+
+
+# -----------------------------------------------------------
+# MODULE 9E.2 — CODEX CHAT IMAGE STAGING
+# -----------------------------------------------------------
+# Stage already-validated image bytes inside the existing
+# per-request temporary work directory.
+#
+# Security:
+# - Never download arbitrary image URLs.
+# - Never accept filesystem paths supplied by callers.
+# - Revalidate image bytes at the runner boundary.
+# - Use generated filenames, not caller-controlled names.
+# - Delete files automatically with TemporaryDirectory.
+# - Never log image bytes or Base64 data.
+# -----------------------------------------------------------
+
+def stage_chat_images(
+    attachments: list[tuple[str, bytes]] | None,
+    workdir: Path,
+) -> list[Path]:
+
+    if attachments is None:
+        return []
+
+    if not isinstance(attachments, list):
+        raise GatewayError(
+            "invalid_request",
+            "Image attachments must be a list.",
+            422,
+        )
+
+    if len(attachments) > MAX_CHAT_IMAGES_PER_REQUEST:
+        raise GatewayError(
+            "invalid_request",
+            "Too many chat image attachments.",
+            422,
+        )
+
+    mime_formats = {
+        "image/jpeg": ("JPEG", ".jpg"),
+        "image/png": ("PNG", ".png"),
+        "image/webp": ("WEBP", ".webp"),
+    }
+
+    output_paths: list[Path] = []
+
+    for index, attachment in enumerate(attachments):
+
+        if (
+            not isinstance(attachment, tuple)
+            or len(attachment) != 2
+        ):
+            raise GatewayError(
+                "invalid_request",
+                "Invalid chat image attachment.",
+                422,
+            )
+
+        mime_type, data = attachment
+
+        if mime_type not in mime_formats:
+            raise GatewayError(
+                "invalid_request",
+                "Unsupported chat image MIME type.",
+                422,
+            )
+
+        if not isinstance(data, bytes):
+            raise GatewayError(
+                "invalid_request",
+                "Chat image must contain binary bytes.",
+                422,
+            )
+
+        if not data or len(data) > MAX_CHAT_IMAGE_BYTES:
+            raise GatewayError(
+                "invalid_request",
+                "Chat image is empty or exceeds 5 MiB.",
+                422,
+            )
+
+        expected_format, extension = mime_formats[mime_type]
+
+        # Pillow verifies the actual file format rather than
+        # trusting its MIME label or first few bytes.
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter(
+                    "error",
+                    Image.DecompressionBombWarning,
+                )
+
+                with Image.open(BytesIO(data)) as decoded:
+
+                    if decoded.format != expected_format:
+                        raise ValueError(
+                            "Image format does not match MIME."
+                        )
+
+                    width, height = decoded.size
+
+                    if (
+                        width < 1
+                        or height < 1
+                        or width * height > 25_000_000
+                    ):
+                        raise ValueError(
+                            "Invalid or excessive image dimensions."
+                        )
+
+                    decoded.verify()
+
+        except (
+            UnidentifiedImageError,
+            OSError,
+            ValueError,
+            Image.DecompressionBombError,
+            Image.DecompressionBombWarning,
+        ) as exc:
+            raise GatewayError(
+                "invalid_request",
+                "Chat image failed media validation.",
+                422,
+            ) from exc
+
+        # Generate the filename ourselves.
+        # No asset IDs or caller-provided paths are used.
+        target = (
+            workdir /
+            f"chat_input_{index + 1:02d}{extension}"
+        )
+
+        target.write_bytes(data)
+        output_paths.append(target)
+
+    return output_paths
 
 
 class CodexRunner:
@@ -187,6 +333,11 @@ class CodexRunner:
         progress: Callable[[str], None] | None = None,
         session_id: str | None = None,
         persistent: bool = False,
+
+        # Optional image inputs for text/JSON understanding.
+        # Each tuple is (MIME type, validated image bytes).
+        image_attachments: list[tuple[str, bytes]] | None = None,
+
     ) -> RunResult:
         """Run a normal text/JSON Codex request with concise operational logging."""
         log_request_id = request_id or "unknown"
@@ -205,6 +356,16 @@ class CodexRunner:
 
         with tempfile.TemporaryDirectory(prefix="codex-gateway-") as workdir:
             output_path = Path(workdir) / "result.txt"
+
+            # Module 9E.2:
+            # Stage chat images only when explicitly supplied.
+            # The temporary directory automatically removes
+            # these files after success, failure or timeout.
+            image_paths = stage_chat_images(
+                image_attachments,
+                Path(workdir),
+            )
+
 
             args = [
                 *self.command,
@@ -243,9 +404,39 @@ class CodexRunner:
             # --output-schema and --output-last-message are exec-global flags.
             # Codex's resume subcommand receives a UUID, never --last (which
             # could resume a different operator conversation on this computer).
+
+            # ------------------------------------------------
+            # MODULE 9E.2 — OPTIONAL CHAT IMAGE ATTACHMENTS
+            # ------------------------------------------------
+            # Preserve the existing session-resume behaviour.
+            #
+            # Codex CLI --image is a greedy argument.
+            # For image-enabled requests, send the prompt
+            # through stdin rather than positionally.
+            #
+            # Text-only execution remains unchanged.
+            # ------------------------------------------------
+
             if persistent and session_id:
-                args.extend(["resume", str(UUID(session_id))])
-            args.append(prompt)
+                args.extend([
+                    "resume",
+                    str(UUID(session_id)),
+                ])
+
+            if image_paths:
+
+                for image_path in image_paths:
+                    args.extend([
+                        "--image",
+                        str(image_path),
+                    ])
+
+                # No positional prompt with --image.
+                # The prompt will be supplied through stdin.
+
+            else:
+                args.append(prompt)
+
 
             creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
 
@@ -253,7 +444,13 @@ class CodexRunner:
                 process = await asyncio.create_subprocess_exec(
                     *args,
                     cwd=workdir,
-                    stdin=subprocess.DEVNULL,
+
+                    stdin=(
+                        asyncio.subprocess.PIPE
+                        if image_paths
+                        else subprocess.DEVNULL
+                    ),
+
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     creationflags=creationflags,
@@ -269,6 +466,45 @@ class CodexRunner:
                     "Could not start Codex CLI.",
                     503,
                 ) from exc
+
+
+            # ------------------------------------------------
+            # MODULE 9E.2 — WRITE MULTIMODAL PROMPT
+            # ------------------------------------------------
+            # Text-only requests still use the original
+            # positional prompt and DEVNULL stdin.
+            #
+            # Image-enabled requests send text through stdin
+            # to avoid Codex treating it as an image path.
+            # ------------------------------------------------
+
+            if image_paths:
+
+                assert process.stdin is not None
+
+                try:
+                    process.stdin.write(
+                        prompt.encode("utf-8")
+                    )
+
+                    await process.stdin.drain()
+
+                except (
+                    BrokenPipeError,
+                    ConnectionResetError,
+                ):
+                    # The CLI may have exited during parsing.
+                    # Continue collecting its stdout/stderr
+                    # so existing error classification works.
+                    LOG.warning(
+                        "codex_chat_image_stdin_closed "
+                        "request_id=%s",
+                        log_request_id,
+                    )
+
+                finally:
+                    process.stdin.close()
+
 
             try:
                 stdout, stderr = await self._communicate(
@@ -700,6 +936,22 @@ class CodexRunner:
                 ) from exc
 
             event_summary = codex_event_summary(stdout)
+            # Diagnostics only: confirm whether Codex actually emitted an image-tool
+            # event. A successful text turn is NOT evidence of image generation.
+            image_tool_events = []
+            for raw_line in stdout.decode("utf-8", errors="replace").splitlines():
+                try:
+                    event = json.loads(raw_line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(event, dict):
+                    continue
+                item = event.get("item")
+                if (event.get("type") in {"item.started", "item.updated", "item.completed", "item.failed"}
+                        and isinstance(item, dict)
+                        and item.get("type") in {"image_generation", "image_generation_call"}):
+                    image_tool_events.append(event["type"])
+
 
             LOG.info(
                 "image_codex_exit request_id=%s exit_code=%s stdout_bytes=%s stderr_bytes=%s "
@@ -775,15 +1027,25 @@ class CodexRunner:
 
             if not images:
                 LOG.warning(
-                    "image_output_missing request_id=%s thread_id=%s image_dir=%s events=%s",
+                    "image_output_missing request_id=%s thread_id=%s image_dir=%s "
+                    "events=%s image_tool_event_count=%s",
                     log_request_id,
                     thread_id,
                     str(image_dir),
                     event_summary,
+                    len(image_tool_events),
                 )
+                if not image_tool_events:
+                    raise GatewayError(
+                        "image_tool_not_observed",
+                        "Codex finished without an observable image-generation tool call "
+                        "or saved image. Check model image-tool support and CLI version.",
+                        502,
+                    )
                 raise GatewayError(
-                    "invalid_response",
-                    "Codex completed but did not save an image file.",
+                    "image_output_not_found",
+                    "Codex reported an image-generation tool event but no image file "
+                    "was found under the current thread's generated_images directory.",
                     502,
                 )
 
