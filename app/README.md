@@ -65,7 +65,21 @@ The selected test workflow's text request nodes use this route and the saved `Ch
 
 ## Image route
 
-`POST /v1/images/generations` accepts JSON `{"prompt":"..."}` with optional `request_id` and `timeout_seconds` (30–900). It uses Codex's integrated image generation tool and returns image bytes with an image content type. The two Asset Gen and six FFmpeg Scene Render image request nodes in the test copies send their existing prompt fields to this route and keep n8n's File response format in the `data` field. They use the same bearer credential as text requests and a 900-second HTTP timeout. Restart the Pinokio gateway after updating its app files.
+`POST /v1/images/generations` accepts JSON `{"prompt":"..."}` with optional `request_id`, `timeout_seconds` (30–900), and at most 10 `reference_images`. Each reference must contain exactly one of the original direct HTTPS `url` or a trusted POSIX `local_path` under `/files` (plus optional `id`). It uses Codex's integrated image generation tool and returns image bytes with an image content type. The two Asset Gen and six FFmpeg Scene Render image request nodes in the test copies send their existing prompt fields to this route and keep n8n's File response format in the `data` field. They use the same bearer credential as text requests and a 900-second HTTP timeout. Restart the Pinokio gateway after updating its app files.
+
+Local paths are enabled only by the admin-controlled Windows process
+environment: `AI_GATEWAY_TRUSTED_WORKSPACE_PREFIX` defaults to `/files`, and
+`AI_GATEWAY_TRUSTED_WORKSPACE_ROOT` is unset/disabled until configured. Set
+the root to the Windows host directory backing n8n's `/files` workspace.
+Docker requests keep using `/files/...`; the gateway translates that prefix to
+the configured Windows root. The resolver rejects traversal, ambiguous or
+Windows-native paths, missing roots/files, directories, symlink/junction
+escapes, invalid image signatures, and images above 20 MB. It copies validated
+bytes to a request-scoped temporary file before Codex and does not cache local
+paths. Restart Pinokio/the gateway after changing the variables. To verify
+the contract without generation, submit a nonexistent local path (or an
+invalid bearer token) and confirm a safe 4xx response; do not use a real
+generation request for configuration testing.
 
 The route returned a PNG in a direct live test. The existing Pollinations model, seed, dimensions, negative prompt, and reference-image parameters are not mapped to the Codex request. Each existing parallel or retry branch may create another image and consume Codex usage.
 
@@ -114,4 +128,3 @@ For `output_format: json`, use `schema_id: stock_queries_v1` or supply an inline
 - A timeout kills the Codex parent process. Windows child-process cleanup is a later hardening task.
 - ChatGPT plan usage limits and Codex model availability can change. Measure real scenes before increasing concurrency.
 - The first live gateway smoke tests reported 8,903 input tokens for five stock queries and 71,976 input tokens for a web research request (45,696 cached). Codex is a relatively heavy backend for tiny generation jobs; benchmark quality and usage before routing high-volume scene work to it.
-
