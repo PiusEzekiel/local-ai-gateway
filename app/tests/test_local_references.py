@@ -1,8 +1,6 @@
 """No-network coverage for trusted workspace image references."""
 from __future__ import annotations
 
-import hashlib
-import os
 from pathlib import Path
 
 import pytest
@@ -29,22 +27,15 @@ def test_schema_accepts_url_or_local_path_but_not_both_or_neither() -> None:
         ImageReference(url="https://drive.google.com/image", local_path="/files/image.png")
 
 
-def test_schema_rejects_invalid_sha256() -> None:
-    with pytest.raises(ValidationError):
-        ImageReference(local_path="/files/image.png", sha256="not-a-digest")
-
-
-def test_valid_workspace_image_is_copied_and_checksum_checked(tmp_path: Path) -> None:
-    source = tmp_path / "smarter in 2d" / "episode" / "teacher.png"
+def test_valid_workspace_image_is_copied(tmp_path: Path) -> None:
+    source = tmp_path / "tests" / "episode" / "teacher.png"
     source.parent.mkdir(parents=True)
     source.write_bytes(PNG)
     resolver = LocalReferenceResolver(root=str(tmp_path))
     workdir = tmp_path / "request"
     workdir.mkdir()
-    digest = hashlib.sha256(PNG).hexdigest()
-
     copied = resolver.resolve(
-        reference(local_path="/files/smarter in 2d/episode/teacher.png", sha256=digest),
+        reference(local_path="/files/tests/episode/teacher.png"),
         workdir,
         0,
     )
@@ -94,7 +85,7 @@ def test_symlink_escape_is_rejected(tmp_path: Path) -> None:
         )
 
 
-def test_size_signature_and_checksum_fail_closed(tmp_path: Path) -> None:
+def test_size_and_signature_fail_closed(tmp_path: Path) -> None:
     root = tmp_path / "root"
     root.mkdir()
     bad = root / "bad.png"
@@ -110,8 +101,3 @@ def test_size_signature_and_checksum_fail_closed(tmp_path: Path) -> None:
         stream.write(b"x")
     with pytest.raises(GatewayError):
         resolver.resolve(reference(local_path="/files/large.png"), tmp_path, 0)
-
-    valid = root / "valid.png"
-    valid.write_bytes(PNG)
-    with pytest.raises(GatewayError):
-        resolver.resolve(reference(local_path="/files/valid.png", sha256="0" * 64), tmp_path, 0)

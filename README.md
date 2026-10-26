@@ -110,7 +110,7 @@ The dashboard receives notifications over authenticated `GET /dashboard/api/even
 | `GET /v1/jobs` | Authenticated recent job information. |
 | `GET /health` | Authenticated gateway health and currently selected model. |
 
-Use `codex_model` for a per-request gateway-model override. The image route accepts `prompt`, optional `request_id`, `timeout_seconds`, and up to 10 `reference_images`. Each reference has an optional `id` and exactly one source: the existing direct HTTPS `url`, or a trusted workspace `local_path` such as `/files/smarter in 2d/episode/01 Assets/Generated/teacher.png`. A local reference may include a strict 64-hex `sha256`. The image model actually used inside Codex's image tool is determined by Codex. Do not treat `temperature`, `max_tokens` or legacy `model` fields on the chat compatibility route as controls for Codex.
+Use `codex_model` for a per-request gateway-model override. The image route accepts `prompt`, optional `request_id`, `timeout_seconds`, and up to 10 `reference_images`. Each reference has an optional `id` and exactly one source: the existing direct HTTPS `url`, or a trusted workspace `local_path` such as `/files/smarter in 2d/episode/01 Assets/Generated/teacher.png`. The image model actually used inside Codex's image tool is determined by Codex. Do not treat `temperature`, `max_tokens` or legacy `model` fields on the chat compatibility route as controls for Codex.
 
 Local workspace references are an admin-only feature configured through the
 Windows process environment. `AI_GATEWAY_TRUSTED_WORKSPACE_PREFIX` defaults to
@@ -131,7 +131,7 @@ token or a nonexistent local reference and confirm the request returns a
 safe 4xx response; this validates routing and path rejection without
 starting a Codex image generation. For an actual request, use either
 `{"id":"teacher","url":"https://drive.google.com/..."}` or
-`{"id":"teacher","local_path":"/files/smarter in 2d/episode/01 Assets/Generated/teacher.png","sha256":"<64 hex chars>"}`.
+`{"id":"teacher","local_path":"/files/smarter in 2d/episode/01 Assets/Generated/teacher.png"}`.
 
 ### Minimal text smoke test (PowerShell)
 

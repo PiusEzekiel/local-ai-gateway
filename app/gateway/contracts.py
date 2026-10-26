@@ -318,8 +318,6 @@ class ImageReference(BaseModel):
 
     local_path: str | None = Field(default=None, min_length=1, max_length=4_096)
 
-    sha256: str | None = Field(default=None, strict=True, pattern=r"^[0-9a-fA-F]{64}$")
-
     @model_validator(mode="after")
     def require_one_source(self) -> "ImageReference":
         if (self.url is None) == (self.local_path is None):

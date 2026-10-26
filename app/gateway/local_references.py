@@ -1,7 +1,6 @@
 """Secure resolution of request-local workspace image references."""
 from __future__ import annotations
 
-import hashlib
 import os
 from pathlib import Path
 
@@ -54,7 +53,7 @@ class LocalReferenceResolver:
         return tuple(relative)
 
     def resolve(self, reference: ImageReference, workdir: Path, index: int) -> Path:
-        """Validate, open, hash, and copy one image without exposing host paths."""
+        """Validate, read, and copy one image without exposing host paths."""
         try:
             parts = self._relative_parts(reference.local_path or "")
             if self.root is None or not self.root.is_dir():
@@ -86,9 +85,6 @@ class LocalReferenceResolver:
                 os.close(descriptor)
 
             extension = detect_image_extension(bytes(data))
-            if (reference.sha256
-                    and hashlib.sha256(data).hexdigest() != reference.sha256.lower()):
-                raise self._error("Local reference image checksum does not match sha256.")
             target = Path(workdir) / f"{index + 1:02d}_local_reference{extension}"
             target.write_bytes(data)
             return target

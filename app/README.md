@@ -65,7 +65,7 @@ The selected test workflow's text request nodes use this route and the saved `Ch
 
 ## Image route
 
-`POST /v1/images/generations` accepts JSON `{"prompt":"..."}` with optional `request_id`, `timeout_seconds` (30–900), and at most 10 `reference_images`. Each reference must contain exactly one of the original direct HTTPS `url` or a trusted POSIX `local_path` under `/files` (plus optional `id` and local-file `sha256`, a strict 64-hex digest). It uses Codex's integrated image generation tool and returns image bytes with an image content type. The two Asset Gen and six FFmpeg Scene Render image request nodes in the test copies send their existing prompt fields to this route and keep n8n's File response format in the `data` field. They use the same bearer credential as text requests and a 900-second HTTP timeout. Restart the Pinokio gateway after updating its app files.
+`POST /v1/images/generations` accepts JSON `{"prompt":"..."}` with optional `request_id`, `timeout_seconds` (30–900), and at most 10 `reference_images`. Each reference must contain exactly one of the original direct HTTPS `url` or a trusted POSIX `local_path` under `/files` (plus optional `id`). It uses Codex's integrated image generation tool and returns image bytes with an image content type. The two Asset Gen and six FFmpeg Scene Render image request nodes in the test copies send their existing prompt fields to this route and keep n8n's File response format in the `data` field. They use the same bearer credential as text requests and a 900-second HTTP timeout. Restart the Pinokio gateway after updating its app files.
 
 Local paths are enabled only by the admin-controlled Windows process
 environment: `AI_GATEWAY_TRUSTED_WORKSPACE_PREFIX` defaults to `/files`, and
