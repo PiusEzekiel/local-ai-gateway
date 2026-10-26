@@ -2,7 +2,7 @@
 
 Windows-hosted, self-hosted Codex CLI gateway for n8n, with an authenticated monitoring and operations dashboard. The gateway accepts compatible text, research, chat-shaped and image-generation requests; runs Codex locally under the signed-in Windows account; and returns responses that the existing n8n automation can consume.
 
-**Release checkpoint:** [v0.10.0](https://github.com/PiusEzekiel/local-ai-gateway/releases/tag/v0.10.0) (September 2026). The earlier Module 8D test result was a historical checkpoint; run the full regression suite for your current deployment.
+**Release checkpoint:** [v0.10.0]The earlier Module 8D test result was a historical checkpoint; run the full regression suite for your current deployment.
 
 ## Documentation
 
@@ -110,7 +110,28 @@ The dashboard receives notifications over authenticated `GET /dashboard/api/even
 | `GET /v1/jobs` | Authenticated recent job information. |
 | `GET /health` | Authenticated gateway health and currently selected model. |
 
-Use `codex_model` for a per-request gateway-model override. The image route accepts `prompt`, optional `request_id`, `timeout_seconds`, and up to 10 `reference_images` objects containing a direct HTTPS `url` and optional `id`. The image model actually used inside Codex's image tool is determined by Codex. Do not treat `temperature`, `max_tokens` or legacy `model` fields on the chat compatibility route as controls for Codex.
+Use `codex_model` for a per-request gateway-model override. The image route accepts `prompt`, optional `request_id`, `timeout_seconds`, and up to 10 `reference_images`. Each reference has an optional `id` and exactly one source: the existing direct HTTPS `url`, or a trusted workspace `local_path` such as `/files/smarter in 2d/episode/01 Assets/Generated/teacher.png`. A local reference may include a strict 64-hex `sha256`. The image model actually used inside Codex's image tool is determined by Codex. Do not treat `temperature`, `max_tokens` or legacy `model` fields on the chat compatibility route as controls for Codex.
+
+Local workspace references are an admin-only feature configured through the
+Windows process environment. `AI_GATEWAY_TRUSTED_WORKSPACE_PREFIX` defaults to
+`/files`, and `AI_GATEWAY_TRUSTED_WORKSPACE_ROOT` is unset/disabled by default.
+Set the root to the Windows host directory that is mounted into n8n (for
+example, `C:\path\to\local-files`); do not put that host path in a workflow.
+The gateway translates the POSIX `/files/...` request path to the configured
+Windows root, validates the actual image bytes, and copies them into a
+request-scoped temporary directory. Docker n8n commonly uses
+`/files/...` while the Windows gateway uses the corresponding host root.
+Restart the gateway after changing either variable. Paths outside the root,
+symlinks/junctions, non-images, missing files, and files over 20 MB are
+rejected without revealing the host path. Local references are never placed
+in the URL-keyed remote cache.
+
+For a no-generation verification, first use a deliberately invalid bearer
+token or a nonexistent local reference and confirm the request returns a
+safe 4xx response; this validates routing and path rejection without
+starting a Codex image generation. For an actual request, use either
+`{"id":"teacher","url":"https://drive.google.com/..."}` or
+`{"id":"teacher","local_path":"/files/smarter in 2d/episode/01 Assets/Generated/teacher.png","sha256":"<64 hex chars>"}`.
 
 ### Minimal text smoke test (PowerShell)
 

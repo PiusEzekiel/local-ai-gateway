@@ -26,6 +26,7 @@ from .contracts import GatewayError, ImageReference, ImageRunResult, RunResult
 from .codex_diagnostics import codex_failure_diagnostic, codex_event_summary, classify_codex_failure
 from .reference_images import download_reference_image
 from .reference_cache import ReferenceCache
+from .local_references import LocalReferenceResolver
 
 LOG = logging.getLogger("uvicorn.error")
 
@@ -232,12 +233,14 @@ def stage_chat_images(
 class CodexRunner:
 
     def __init__(self, command: list[str], model: str | None = None,
-                 reference_cache: ReferenceCache | None = None):
+                 reference_cache: ReferenceCache | None = None,
+                 local_reference_resolver: LocalReferenceResolver | None = None):
 
         self.command = command
 
         self.model = model
         self.reference_cache = reference_cache
+        self.local_reference_resolver = local_reference_resolver
 
 
 
@@ -626,6 +629,11 @@ class CodexRunner:
 
     def _download_reference(self, reference: ImageReference, workdir: Path, index: int,
                             request_id: str | None = None) -> Path:
+        if reference.local_path is not None:
+            if self.local_reference_resolver is None:
+                raise GatewayError("invalid_reference_image",
+                                   "Local workspace references are not configured.", 422)
+            return self.local_reference_resolver.resolve(reference, workdir, index)
         if self.reference_cache is None:
             return download_reference_image(reference, workdir, index, request_id)
         cached = self.reference_cache.resolve(reference)

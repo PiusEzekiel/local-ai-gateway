@@ -124,6 +124,8 @@ class Settings:
     reference_cache_ttl_seconds: int = REFERENCE_CACHE_DEFAULT_TTL_SECONDS
     reference_cache_retention_days: int = REFERENCE_CACHE_DEFAULT_RETENTION_DAYS
     reference_cache_max_mb: int = REFERENCE_CACHE_DEFAULT_MAX_MB
+    trusted_workspace_prefix: str = "/files"
+    trusted_workspace_root: str | None = None
 
 
 
@@ -176,5 +178,7 @@ class Settings:
             reference_cache_max_mb=int(os.getenv(
                 "AI_GATEWAY_REFERENCE_CACHE_MAX_MB", str(REFERENCE_CACHE_DEFAULT_MAX_MB)
             )),
+            trusted_workspace_prefix=os.getenv("AI_GATEWAY_TRUSTED_WORKSPACE_PREFIX", "/files"),
+            trusted_workspace_root=os.getenv("AI_GATEWAY_TRUSTED_WORKSPACE_ROOT") or None,
 
         )

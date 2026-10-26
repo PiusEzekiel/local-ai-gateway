@@ -46,6 +46,7 @@ from .reference_images import (
     download_reference_image,
 )
 from .reference_cache import ReferenceCache
+from .local_references import create_local_reference_resolver
 from .episode_sessions import EpisodeSessions
 from .codex_runner import CodexRunner as _CodexRunner, extract_usage, used_web_search
 from .dashboard_routes import create_dashboard_router
@@ -68,7 +69,16 @@ class CodexRunner(_CodexRunner):
 
     async def run_image(self, **kwargs: Any) -> ImageRunResult:
         if self.reference_cache is None:
-            kwargs.setdefault("reference_downloader", download_reference_image)
+            if "reference_downloader" not in kwargs:
+                def download_without_cache(reference: ImageReference, workdir: Path,
+                                           index: int, request_id: str) -> Path:
+                    if reference.local_path is not None:
+                        return self._download_reference(reference, workdir, index, request_id)
+                    # Preserve the existing app-level downloader injection for
+                    # remote references while local files stay off the network.
+                    return download_reference_image(reference, workdir, index, request_id)
+
+                kwargs["reference_downloader"] = download_without_cache
         return await super().run_image(**kwargs)
 
 
@@ -136,6 +146,9 @@ def create_app(settings: Settings | None = None, runner: CodexRunner | None = No
     runner = runner or CodexRunner(
         [settings.codex_exe], model=settings.model,
         reference_cache=reference_cache if settings.reference_cache_enabled else None,
+        local_reference_resolver=create_local_reference_resolver(
+            settings.trusted_workspace_prefix, settings.trusted_workspace_root,
+        ),
     )
 
     if job_store:

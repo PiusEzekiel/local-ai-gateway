@@ -298,7 +298,7 @@ class ChatCompletionRequest(BaseModel):
 
 class ImageReference(BaseModel):
 
-    """One externally hosted image that should be attached to the Codex image request.
+    """One remote or trusted-workspace image attached to the Codex image request.
 
 
 
@@ -314,7 +314,17 @@ class ImageReference(BaseModel):
 
     id: str | None = Field(default=None, max_length=128)
 
-    url: str = Field(min_length=1, max_length=2_000)
+    url: str | None = Field(default=None, min_length=1, max_length=2_000)
+
+    local_path: str | None = Field(default=None, min_length=1, max_length=4_096)
+
+    sha256: str | None = Field(default=None, strict=True, pattern=r"^[0-9a-fA-F]{64}$")
+
+    @model_validator(mode="after")
+    def require_one_source(self) -> "ImageReference":
+        if (self.url is None) == (self.local_path is None):
+            raise ValueError("Exactly one of url or local_path must be provided.")
+        return self
 
 
 class ImageRequest(BaseModel):
@@ -394,5 +404,3 @@ class GatewayError(Exception):
         self.message = message
 
         self.status_code = status_code
-
-
